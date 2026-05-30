@@ -4,42 +4,49 @@ import { useAuth } from '../hooks/useAuth.jsx';
 import { useTheme } from '../hooks/useTheme.jsx';
 import BrandMark from '../components/BrandMark';
 
-function formatBytes(bytes) {
-  if (!bytes) return '';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let value = bytes;
-  let unitIndex = 0;
-
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex += 1;
-  }
-
-  return `${value.toFixed(value >= 100 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
-}
+const GITHUB_REPO = import.meta.env.VITE_GITHUB_REPO || 'prdxqcy/NoteFlow';
+const DEFAULT_RELEASES_URL = `https://github.com/${GITHUB_REPO}/releases/latest`;
+const DEFAULT_DOWNLOAD_URL = import.meta.env.VITE_DESKTOP_DOWNLOAD_URL || DEFAULT_RELEASES_URL;
 
 export default function LoginPage() {
   const { login } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: '', password: '' });
-  const [desktopRelease, setDesktopRelease] = useState(null);
+  const [desktopRelease, setDesktopRelease] = useState({
+    file: DEFAULT_DOWNLOAD_URL,
+    version: '',
+    source: 'GitHub Releases',
+  });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let ignore = false;
 
-    fetch('/downloads/latest-desktop.json')
+    fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`)
       .then(async (response) => {
-        if (!response.ok) throw new Error('Desktop build unavailable');
-        return response.json();
+        if (!response.ok) throw new Error('Release lookup failed');
+        const release = await response.json();
+        const exeAsset = release.assets?.find((asset) => asset.name?.toLowerCase().endsWith('.exe'));
+
+        return {
+          file: exeAsset?.browser_download_url || release.html_url || DEFAULT_DOWNLOAD_URL,
+          version: release.tag_name || release.name || '',
+          source: 'GitHub Releases',
+        };
       })
       .then((release) => {
         if (!ignore) setDesktopRelease(release);
       })
       .catch(() => {
-        if (!ignore) setDesktopRelease(null);
+        if (!ignore) {
+          setDesktopRelease({
+            file: DEFAULT_DOWNLOAD_URL,
+            version: '',
+            source: 'GitHub Releases',
+          });
+        }
       });
 
     return () => {
@@ -106,25 +113,18 @@ export default function LoginPage() {
           <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
             Download the latest Electron build for quick capture, tray access, and hotkeys.
           </p>
-          {desktopRelease ? (
-            <>
-              <a
-                href={desktopRelease.file}
-                download
-                className="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-semibold text-zinc-950 transition hover:bg-amber-300"
-              >
-                Download Latest App
-              </a>
-              <div className="mt-2 flex flex-wrap gap-2 text-xs text-zinc-500 dark:text-zinc-500">
-                <span>v{desktopRelease.version}</span>
-                <span>{formatBytes(desktopRelease.sizeBytes)}</span>
-              </div>
-            </>
-          ) : (
-            <div className="mt-3 rounded-xl border border-dashed border-zinc-300 px-3 py-2 text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-500">
-              Latest desktop build will appear here after packaging.
-            </div>
-          )}
+          <a
+            href={desktopRelease.file}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-semibold text-zinc-950 transition hover:bg-amber-300"
+          >
+            Download Latest App
+          </a>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs text-zinc-500 dark:text-zinc-500">
+            <span>{desktopRelease.source}</span>
+            {desktopRelease.version ? <span>{desktopRelease.version}</span> : null}
+          </div>
         </div>
 
         <p className="mt-6 text-center text-sm text-zinc-500">
