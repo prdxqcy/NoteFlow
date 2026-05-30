@@ -1,8 +1,17 @@
 const { Pool } = require('pg');
 
+function resolveSsl() {
+  const raw = (process.env.DATABASE_SSL || '').trim().toLowerCase();
+  if (raw === 'true' || raw === '1' || raw === 'require') {
+    return { rejectUnauthorized: false };
+  }
+
+  return false;
+}
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  ssl: resolveSsl(),
 });
 
 pool.on('error', (err) => {
