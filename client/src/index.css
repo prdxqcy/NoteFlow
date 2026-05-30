@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  * {
+    @apply border-zinc-200 dark:border-zinc-800;
+  }
+  body {
+    @apply bg-stone-100 text-zinc-900 antialiased transition-colors dark:bg-zinc-950 dark:text-zinc-100;
+  }
+  ::-webkit-scrollbar {
+    @apply w-1.5;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-zinc-300 dark:bg-zinc-700;
+  }
+}
