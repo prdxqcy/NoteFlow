@@ -8,6 +8,23 @@ const GITHUB_REPO = import.meta.env.VITE_GITHUB_REPO || 'prdxqcy/NoteFlow';
 const DEFAULT_RELEASES_URL = `https://github.com/${GITHUB_REPO}/releases/latest`;
 const DEFAULT_DOWNLOAD_URL = import.meta.env.VITE_DESKTOP_DOWNLOAD_URL || DEFAULT_RELEASES_URL;
 
+function getPlatformPreference() {
+  if (typeof navigator === 'undefined') {
+    return { label: 'Desktop', extensions: ['.exe', '.dmg', '.zip'] };
+  }
+
+  const agent = navigator.userAgent.toLowerCase();
+  if (agent.includes('mac')) {
+    return { label: 'macOS', extensions: ['.dmg', '.zip', '.exe'] };
+  }
+
+  if (agent.includes('win')) {
+    return { label: 'Windows', extensions: ['.exe', '.msi', '.zip'] };
+  }
+
+  return { label: 'Desktop', extensions: ['.exe', '.dmg', '.zip'] };
+}
+
 export default function LoginPage() {
   const { login } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -17,23 +34,28 @@ export default function LoginPage() {
     file: DEFAULT_DOWNLOAD_URL,
     version: '',
     source: 'GitHub Releases',
+    platformLabel: 'Desktop',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let ignore = false;
+    const preferredPlatform = getPlatformPreference();
 
     fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`)
       .then(async (response) => {
         if (!response.ok) throw new Error('Release lookup failed');
         const release = await response.json();
-        const exeAsset = release.assets?.find((asset) => asset.name?.toLowerCase().endsWith('.exe'));
+        const matchingAsset = preferredPlatform.extensions
+          .map((extension) => release.assets?.find((asset) => asset.name?.toLowerCase().endsWith(extension)))
+          .find(Boolean);
 
         return {
-          file: exeAsset?.browser_download_url || release.html_url || DEFAULT_DOWNLOAD_URL,
+          file: matchingAsset?.browser_download_url || release.html_url || DEFAULT_DOWNLOAD_URL,
           version: release.tag_name || release.name || '',
           source: 'GitHub Releases',
+          platformLabel: preferredPlatform.label,
         };
       })
       .then((release) => {
@@ -45,6 +67,7 @@ export default function LoginPage() {
             file: DEFAULT_DOWNLOAD_URL,
             version: '',
             source: 'GitHub Releases',
+            platformLabel: preferredPlatform.label,
           });
         }
       });
@@ -119,7 +142,7 @@ export default function LoginPage() {
             rel="noreferrer"
             className="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-semibold text-zinc-950 transition hover:bg-amber-300"
           >
-            Download Latest App
+            Download for {desktopRelease.platformLabel}
           </a>
           <div className="mt-2 flex flex-wrap gap-2 text-xs text-zinc-500 dark:text-zinc-500">
             <span>{desktopRelease.source}</span>

@@ -56,6 +56,24 @@
         }
       ],
       "artifactName": "NoteFlow-Desktop-${version}.${ext}"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "NoteFlow-Desktop-${version}-${arch}.${ext}"
     }
   }
 }
