@@ -41,7 +41,7 @@ jobs:
         run: gh release upload $env:RELEASE_TAG "client/release/NoteFlow-Desktop-*.exe" --clobber --repo ${{ github.repository }}
 
   build-macos:
-    runs-on: macos-13
+    runs-on: macos-latest
     env:
       RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag }}
     steps:
