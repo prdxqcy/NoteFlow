@@ -14,6 +14,12 @@ function TrashIcon() {
   );
 }
 
+const inputCls =
+  'w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-zinc-400 focus:bg-white dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-zinc-500 dark:focus:bg-zinc-750';
+
+const dateCls =
+  inputCls + ' [color-scheme:light] dark:[color-scheme:dark]';
+
 function CreateMeetingModal({ onClose, onCreate }) {
   const [form, setForm] = useState({ title: '', description: '', start_time: '', end_time: '' });
   const [loading, setLoading] = useState(false);
@@ -44,65 +50,87 @@ function CreateMeetingModal({ onClose, onCreate }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
-        <h3 className="mb-4 font-semibold text-zinc-900 dark:text-zinc-100">New meeting</h3>
-        <form onSubmit={handleSubmit} className="space-y-3">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-4">
+      <div className="w-full max-w-md rounded-t-3xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 sm:rounded-2xl">
+        {/* drag handle on mobile */}
+        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-zinc-200 dark:bg-zinc-700 sm:hidden" />
+
+        <h3 className="mb-5 text-base font-semibold text-zinc-900 dark:text-zinc-100">New meeting</h3>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
           <input
             required
-            placeholder="Title"
-            className="w-full rounded-lg bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 placeholder:text-zinc-400 focus:ring-amber-400 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-700 dark:placeholder:text-zinc-600 dark:focus:ring-zinc-500"
+            autoFocus
+            placeholder="Meeting title"
+            className={inputCls}
             value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
           />
+
           <div>
-            <div className="mb-1 flex items-center justify-between">
-              <label className="text-xs text-zinc-500">Description / Agenda</label>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                Description / Agenda
+              </label>
               <button
                 type="button"
                 onClick={generateAgenda}
                 disabled={aiLoading || !form.title.trim()}
-                className="flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-40 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-40 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
               >
-                <span className="text-sm leading-none">✦</span>
+                <span className="leading-none">✦</span>
                 {aiLoading ? 'Generating…' : 'AI agenda'}
               </button>
             </div>
             <textarea
               placeholder="Add context or let AI generate an agenda"
-              className="w-full resize-none rounded-lg bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 placeholder:text-zinc-400 focus:ring-amber-400 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-700 dark:placeholder:text-zinc-600 dark:focus:ring-zinc-500"
+              className={inputCls + ' resize-none'}
               rows={3}
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
             />
           </div>
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <label className="mb-1 block text-xs text-zinc-500 dark:text-zinc-500">Start</label>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                Start <span className="text-red-500">*</span>
+              </label>
               <input
                 type="datetime-local"
                 required
-                className="w-full rounded-lg bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 focus:ring-amber-400 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-700 dark:focus:ring-zinc-500"
+                className={dateCls}
                 value={form.start_time}
                 onChange={(e) => setForm({ ...form, start_time: e.target.value })}
               />
             </div>
-            <div className="flex-1">
-              <label className="mb-1 block text-xs text-zinc-500 dark:text-zinc-500">End</label>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                End
+              </label>
               <input
                 type="datetime-local"
-                className="w-full rounded-lg bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 focus:ring-amber-400 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-700 dark:focus:ring-zinc-500"
+                className={dateCls}
                 value={form.end_time}
                 onChange={(e) => setForm({ ...form, end_time: e.target.value })}
               />
             </div>
           </div>
-          <div className="flex gap-2 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 rounded-lg bg-zinc-100 py-2 text-sm hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700">
+
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 rounded-xl border border-zinc-200 bg-white py-2.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-750"
+            >
               Cancel
             </button>
-            <button type="submit" disabled={loading} className="flex-1 rounded-lg bg-zinc-950 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200">
-              {loading ? 'Creating...' : 'Create'}
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 rounded-xl bg-zinc-900 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
+            >
+              {loading ? 'Creating…' : 'Create meeting'}
             </button>
           </div>
         </form>
