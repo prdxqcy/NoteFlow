@@ -30,9 +30,9 @@ export default function SettingsPanel() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+      <div className="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6">
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(260px,0.9fr)]">
-          <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/90">
+          <section className="min-w-0 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/90">
             <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-500">Desktop Shortcuts</p>
             <h3 className="mt-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100">Global hotkeys</h3>
             <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-500">
@@ -86,7 +86,7 @@ export default function SettingsPanel() {
                   />
                 </label>
 
-                <p className="text-xs text-zinc-500 dark:text-zinc-500">
+                <p className="break-all text-xs text-zinc-500 dark:text-zinc-500">
                   Examples: <code>CommandOrControl+Shift+Space</code>, <code>Alt+N</code>, <code>CommandOrControl+1</code>
                 </p>
 
