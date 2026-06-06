@@ -281,9 +281,9 @@ export default function DashboardPage() {
     setActiveWorkspace(ws);
   }, []);
 
-  const handleCreateNote = useCallback(async () => {
+  const handleCreateNote = useCallback(async (overrides = {}) => {
     if (!activeWorkspace) return;
-    const note = await api.createNote({ workspace_id: activeWorkspace.id });
+    const note = await api.createNote({ workspace_id: activeWorkspace.id, ...overrides });
     setNotes((prev) => [note, ...prev]);
     setView('notes');
   }, [activeWorkspace]);
