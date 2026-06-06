@@ -11,7 +11,9 @@ const transporter = nodemailer.createTransport({
 });
 
 const FROM = `"NoteFlow" <${process.env.SMTP_USER}>`;
-const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
+const CLIENT_URL = (process.env.CLIENT_URLS || process.env.CLIENT_URL || 'http://localhost:5173')
+  .split(',')[0]
+  .trim();
 
 async function sendWorkspaceInvite({ toEmail, workspaceName, inviterName, token }) {
   const link = `${CLIENT_URL}/register?invite=${token}`;
