@@ -143,7 +143,7 @@ export default function NotesList({ notes, onCreate, onUpdate, onDelete }) {
           />
           <AiNoteAssistant onCreate={onCreate} onUpdate={onUpdate} />
           <button
-            onClick={onCreate}
+            onClick={() => onCreate()}
             className="hidden rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 sm:block dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
           >
             + New note
@@ -158,7 +158,7 @@ export default function NotesList({ notes, onCreate, onUpdate, onDelete }) {
                 <span className="text-sm font-medium">No notes yet.</span>
                 <p className="text-sm">Start this workspace with your first note.</p>
                 <button
-                  onClick={onCreate}
+                  onClick={() => onCreate()}
                   className="mt-2 rounded-lg bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
                 >
                   Add your first note
