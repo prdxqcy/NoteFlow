@@ -147,14 +147,16 @@ export default function Sidebar({
                   } gap-2 px-2 py-2 text-left text-sm`
             }`}
           >
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-zinc-200 text-xs font-bold uppercase text-zinc-700 dark:bg-zinc-700 dark:text-zinc-100">
-              {ws.name[0]}
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-zinc-200 text-[11px] font-bold uppercase leading-none text-zinc-600 dark:bg-zinc-700 dark:text-zinc-200">
+              {ws.name.replace(/^[^a-zA-Z]*/, '')[0]?.toUpperCase() || ws.name[0]?.toUpperCase() || '#'}
             </span>
             {!collapsed && (
               <>
-                <span className="truncate">{ws.name}</span>
+                <span className="truncate text-sm">{ws.name}</span>
                 {!ws.is_solo && (
-                  <span className="ml-auto shrink-0 text-xs text-zinc-500 dark:text-zinc-600">team</span>
+                  <span className="ml-auto shrink-0 rounded-full bg-zinc-200 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500">
+                    team
+                  </span>
                 )}
               </>
             )}

@@ -50,7 +50,7 @@ export default function AiNoteAssistant({ note, onCreate, onUpdate }) {
     <div className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm font-medium text-zinc-300 transition-colors hover:border-zinc-600 hover:text-white"
+        className="flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-200 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-zinc-600 dark:hover:text-white"
         title="AI Assistant"
       >
         <span className="text-base leading-none">✦</span>
@@ -60,21 +60,21 @@ export default function AiNoteAssistant({ note, onCreate, onUpdate }) {
       {open && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 z-40 mt-2 w-80 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 shadow-xl">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-600">
+          <div className="absolute right-0 z-40 mt-2 w-80 rounded-2xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-800 dark:bg-zinc-950">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-600">
               AI Assistant
             </p>
 
             {availableActions.length > 1 && (
-              <div className="mb-3 flex rounded-lg bg-zinc-900 p-1 gap-1">
+              <div className="mb-3 flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-900">
                 {availableActions.map((a) => (
                   <button
                     key={a.id}
                     onClick={() => { setActiveAction(a.id); setError(''); }}
                     className={`flex flex-1 items-center justify-center gap-1 rounded-md py-1.5 text-xs font-medium transition-colors ${
                       activeAction === a.id
-                        ? 'bg-zinc-700 text-white'
-                        : 'text-zinc-500 hover:text-zinc-300'
+                        ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-white'
+                        : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
                     }`}
                   >
                     <span>{a.icon}</span> {a.label}
@@ -94,7 +94,7 @@ export default function AiNoteAssistant({ note, onCreate, onUpdate }) {
                 }}
                 placeholder={action.placeholder}
                 rows={3}
-                className="mb-3 w-full resize-none rounded-lg bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none ring-1 ring-zinc-800 focus:ring-zinc-600 placeholder:text-zinc-600"
+                className="mb-3 w-full resize-none rounded-lg bg-zinc-100 px-3 py-2 text-sm text-zinc-900 outline-none ring-1 ring-zinc-200 focus:ring-zinc-400 placeholder:text-zinc-400 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-800 dark:placeholder:text-zinc-600 dark:focus:ring-zinc-600"
               />
             )}
 
@@ -104,16 +104,16 @@ export default function AiNoteAssistant({ note, onCreate, onUpdate }) {
               </p>
             )}
 
-            {error && <p className="mb-2 text-xs text-red-400">{error}</p>}
+            {error && <p className="mb-2 text-xs text-red-500">{error}</p>}
 
             <button
               onClick={run}
               disabled={loading || (activeAction === 'generate' && !prompt.trim())}
-              className="w-full rounded-lg bg-white py-2 text-sm font-semibold text-zinc-950 hover:bg-zinc-200 disabled:opacity-40"
+              className="w-full rounded-lg bg-zinc-900 py-2 text-sm font-semibold text-white hover:bg-zinc-700 disabled:opacity-40 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
             >
               {loading ? 'Thinking…' : action?.label}
             </button>
-            <p className="mt-2 text-center text-xs text-zinc-700">⌘↵ to run</p>
+            <p className="mt-2 text-center text-xs text-zinc-400 dark:text-zinc-700">⌘↵ to run</p>
           </div>
         </>
       )}

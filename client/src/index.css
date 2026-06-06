@@ -5,15 +5,31 @@
 @layer base {
   html {
     color-scheme: light;
+    /* Prevent horizontal scroll/drift on mobile PWA */
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
   }
   html.dark {
     color-scheme: dark;
   }
   * {
     @apply border-zinc-200 dark:border-zinc-800;
+    /* No tap highlight flash on mobile */
+    -webkit-tap-highlight-color: transparent;
   }
   body {
     @apply bg-stone-100 text-zinc-900 antialiased transition-colors dark:bg-zinc-950 dark:text-zinc-100;
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+    /* Prevent rubber-band/bounce on iOS that causes drift */
+    overscroll-behavior-y: none;
+    /* Safe area on notched devices */
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  #root {
+    overflow-x: hidden;
+    min-height: 100dvh;
   }
   ::-webkit-scrollbar {
     @apply w-1.5;

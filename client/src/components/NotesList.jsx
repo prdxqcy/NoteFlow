@@ -114,29 +114,22 @@ export default function NotesList({ notes, onCreate, onUpdate, onDelete }) {
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <header className="border-b border-zinc-200 px-4 py-4 sm:px-6 dark:border-zinc-800">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Notes</h2>
-            <p className="text-sm text-zinc-500 dark:text-zinc-500">
-              Search notes, keep pinned items first, and draft in place.
-            </p>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search notes"
-              className="w-full rounded-lg bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 placeholder:text-zinc-400 focus:ring-amber-400 sm:w-52 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700 dark:placeholder:text-zinc-600 dark:focus:ring-zinc-500"
-            />
-            <button
-              onClick={onCreate}
-              className="hidden rounded-lg bg-zinc-950 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 sm:block dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
-            >
-              + New note
-            </button>
-            <AiNoteAssistant onCreate={onCreate} onUpdate={onUpdate} />
-          </div>
+      <header className="border-b border-zinc-200 px-4 py-3 sm:px-6 dark:border-zinc-800">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="mr-auto text-base font-semibold text-zinc-900 dark:text-zinc-100">Notes</h2>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search…"
+            className="w-36 rounded-lg bg-zinc-100 px-3 py-1.5 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:ring-1 focus:ring-zinc-400 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-600 dark:focus:ring-zinc-600 sm:w-44"
+          />
+          <AiNoteAssistant onCreate={onCreate} onUpdate={onUpdate} />
+          <button
+            onClick={onCreate}
+            className="hidden rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 sm:block dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
+          >
+            + New note
+          </button>
         </div>
       </header>
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">

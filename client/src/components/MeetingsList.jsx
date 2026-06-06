@@ -146,46 +146,46 @@ export default function MeetingsList({ meetings, onCreate, onDelete, forceCompos
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <header className="border-b border-zinc-200 px-4 py-4 sm:px-6 dark:border-zinc-800">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Meetings</h2>
-            <p className="text-sm text-zinc-500 dark:text-zinc-500">
-              Track upcoming sessions and filter old ones quickly.
-            </p>
+      <header className="border-b border-zinc-200 px-4 py-3 sm:px-6 dark:border-zinc-800">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Title */}
+          <h2 className="mr-auto text-base font-semibold text-zinc-900 dark:text-zinc-100">Meetings</h2>
+
+          {/* Search */}
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search…"
+            className="w-36 rounded-lg bg-zinc-100 px-3 py-1.5 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:ring-1 focus:ring-zinc-400 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-600 dark:focus:ring-zinc-600 sm:w-44"
+          />
+
+          {/* Filter tabs */}
+          <div className="flex rounded-lg bg-zinc-100 p-0.5 dark:bg-zinc-900">
+            {['upcoming', 'all', 'past'].map((option) => (
+              <button
+                key={option}
+                onClick={() => setFilter(option)}
+                className={`rounded-md px-2.5 py-1 text-xs font-medium capitalize transition-colors ${
+                  filter === option
+                    ? 'bg-white text-zinc-950 shadow-sm dark:bg-zinc-700 dark:text-white'
+                    : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+                }`}
+              >
+                {option}
+              </button>
+            ))}
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search meetings"
-              className="w-full rounded-lg bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 placeholder:text-zinc-400 focus:ring-amber-400 sm:w-52 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700 dark:placeholder:text-zinc-600 dark:focus:ring-zinc-500"
-            />
-            <div className="flex rounded-lg bg-zinc-100 p-1 dark:bg-zinc-900">
-              {['upcoming', 'all', 'past'].map((option) => (
-                <button
-                  key={option}
-                  onClick={() => setFilter(option)}
-                  className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium capitalize sm:flex-none ${
-                    filter === option
-                      ? 'bg-white text-zinc-950 shadow-sm dark:bg-zinc-700 dark:text-white'
-                      : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
-                  }`}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setShowModal(true)}
-              className="hidden rounded-lg bg-zinc-950 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 sm:block dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
-            >
-              + New meeting
-            </button>
-          </div>
-        </div>
-        <div className="mt-3">
-          <GoogleCalendarConnect />
+
+          {/* GCal compact pill */}
+          <GoogleCalendarConnect compact />
+
+          {/* New meeting */}
+          <button
+            onClick={() => setShowModal(true)}
+            className="hidden rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 sm:block dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
+          >
+            + New meeting
+          </button>
         </div>
       </header>
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
