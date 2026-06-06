@@ -1,22 +1,38 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { useTheme } from '../hooks/useTheme.jsx';
+import { api } from '../lib/api.js';
 
 export default function RegisterPage() {
   const { register } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const inviteToken = searchParams.get('invite');
+
   const [form, setForm] = useState({ email: '', password: '', display_name: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [inviteInfo, setInviteInfo] = useState(null);
+
+  // Pre-fill email when there's a valid invite token
+  useEffect(() => {
+    if (!inviteToken) return;
+    api.getInvitation(inviteToken)
+      .then((info) => {
+        setInviteInfo(info);
+        setForm((f) => ({ ...f, email: info.invited_email }));
+      })
+      .catch(() => {});
+  }, [inviteToken]);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      await register(form.email, form.password, form.display_name);
+      await register(form.email, form.password, form.display_name, inviteToken || undefined);
       navigate('/');
     } catch (err) {
       setError(err.message);
@@ -28,12 +44,19 @@ export default function RegisterPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(245,158,11,0.22),_transparent_28%),linear-gradient(180deg,_#f5f5f4_0%,_#fafaf9_100%)] px-4 dark:bg-[radial-gradient(circle_at_top,_rgba(245,158,11,0.18),_transparent_25%),linear-gradient(180deg,_#09090b_0%,_#111827_100%)]">
       <div className="w-full max-w-sm rounded-3xl border border-zinc-200 bg-white/90 p-8 shadow-xl shadow-zinc-300/30 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/80 dark:shadow-black/20">
-        <div className="mb-8 flex items-center justify-between">
-          <h1 className="text-3xl font-bold tracking-tight">Create account</h1>
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Create account</h1>
+            {inviteInfo && (
+              <p className="mt-1 text-sm text-amber-600 dark:text-amber-400">
+                Joining <strong>{inviteInfo.workspace_name}</strong> · invited by {inviteInfo.inviter_name}
+              </p>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-600 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-300 dark:hover:text-white"
+            className="ml-3 shrink-0 rounded-full border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-600 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-300 dark:hover:text-white"
           >
             {theme === 'dark' ? 'Light' : 'Dark'}
           </button>

@@ -83,6 +83,30 @@ async function migrate() {
       ALTER TABLE meetings ADD COLUMN IF NOT EXISTS google_event_id TEXT;
     `);
 
+    // External guest emails on meetings (for non-workspace GCal invitees)
+    await client.query(`
+      ALTER TABLE meetings ADD COLUMN IF NOT EXISTS guest_emails TEXT[] DEFAULT '{}';
+    `);
+
+    // Private visibility flag on notes
+    await client.query(`
+      ALTER TABLE notes ADD COLUMN IF NOT EXISTS is_private BOOLEAN DEFAULT false;
+    `);
+
+    // Workspace email invitations (for users without accounts yet)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS invitations (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        invited_email TEXT NOT NULL,
+        invited_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        token UUID NOT NULL DEFAULT gen_random_uuid(),
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        accepted_at TIMESTAMPTZ,
+        UNIQUE(workspace_id, invited_email)
+      );
+    `);
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS google_tokens (
         user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,

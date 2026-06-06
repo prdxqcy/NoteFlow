@@ -13,6 +13,7 @@ export default function TeamPanel({
 }) {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   const memberSummary = useMemo(() => {
     const owners = members.filter((member) => member.role === 'owner').length;
@@ -24,9 +25,15 @@ export default function TeamPanel({
     e.preventDefault();
     if (!email.trim()) return;
     setError('');
+    setSuccessMsg('');
     try {
-      await onInvite(email.trim());
+      const result = await onInvite(email.trim());
       setEmail('');
+      if (result?.type === 'invited') {
+        setSuccessMsg(`Invite sent to ${result.email}`);
+      } else if (result?.type === 'added') {
+        setSuccessMsg(`${result.member?.display_name || result.email} added to workspace`);
+      }
     } catch (err) {
       setError(err.message);
     }
@@ -104,7 +111,7 @@ export default function TeamPanel({
               <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-500">Invite</p>
               <h3 className="mt-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100">Bring in collaborators</h3>
               <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-500">
-                Invite by email. They need an account already, and owners can add them to team workspaces.
+                Enter any email. If they have an account they'll be added instantly — otherwise they'll get an invite email to join.
               </p>
 
               {canInvite ? (
@@ -112,11 +119,12 @@ export default function TeamPanel({
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => { setEmail(e.target.value); setSuccessMsg(''); }}
                     placeholder="teammate@example.com"
                     className="w-full rounded-xl bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 placeholder:text-zinc-400 focus:ring-amber-400 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700 dark:placeholder:text-zinc-600 dark:focus:ring-zinc-500"
                   />
                   {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
+                  {successMsg && <p className="text-sm text-green-600 dark:text-green-400">{successMsg}</p>}
                   <button
                     type="submit"
                     disabled={inviting}
@@ -135,9 +143,9 @@ export default function TeamPanel({
             <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/90">
               <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-500">How Collaboration Works</p>
               <div className="mt-3 space-y-3 text-sm text-zinc-600 dark:text-zinc-400">
-                <p>Everyone in a workspace sees the same notes and meetings.</p>
-                <p>Note and meeting changes sync in real time through the existing socket connection.</p>
-                <p>Create a shared workspace, invite teammates, then collaborate inside that workspace.</p>
+                <p>Shared notes are visible to all workspace members. Mark a note <strong>Private</strong> (lock icon) to keep it only for yourself.</p>
+                <p>When you create a meeting, add guest emails to send Google Calendar invites to people outside the workspace.</p>
+                <p>Changes to notes and meetings sync in real time for everyone in the workspace.</p>
               </div>
             </section>
 

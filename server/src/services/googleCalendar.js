@@ -74,13 +74,24 @@ function buildEventBody(meeting, attendeeEmails = []) {
 }
 
 async function getAttendeeEmails(meetingId) {
+  // Workspace member emails
   const { rows } = await pool.query(
     `SELECT u.email FROM meeting_attendees ma
      JOIN users u ON u.id = ma.user_id
      WHERE ma.meeting_id = $1`,
     [meetingId]
   );
-  return rows.map((r) => r.email);
+  const memberEmails = rows.map((r) => r.email);
+
+  // External guest emails stored on the meeting row
+  const { rows: mRows } = await pool.query(
+    'SELECT guest_emails FROM meetings WHERE id = $1',
+    [meetingId]
+  );
+  const guestEmails = mRows[0]?.guest_emails || [];
+
+  // Deduplicate
+  return [...new Set([...memberEmails, ...guestEmails])];
 }
 
 async function createEvent(userId, meeting) {

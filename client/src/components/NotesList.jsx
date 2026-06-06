@@ -70,6 +70,17 @@ function NoteCard({ note, onUpdate, onDelete }) {
             {note.is_pinned ? 'Pinned' : 'Pin'}
           </button>
           <button
+            onClick={() => onUpdate(note.id, { is_private: !note.is_private })}
+            title={note.is_private ? 'Make visible to workspace' : 'Make private (only you)'}
+            className={`rounded p-1 text-xs transition-colors ${
+              note.is_private
+                ? 'text-amber-500 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300'
+                : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-zinc-200'
+            }`}
+          >
+            {note.is_private ? '🔒' : '🔓'}
+          </button>
+          <button
             onClick={() => onDelete(note.id)}
             aria-label="Delete note"
             title="Delete note"
@@ -89,7 +100,14 @@ function NoteCard({ note, onUpdate, onDelete }) {
         }}
       />
       <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-600">
-        <span>{note.author_name}</span>
+        <span className="flex items-center gap-1">
+          {note.is_private && (
+            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+              Private
+            </span>
+          )}
+          {note.author_name}
+        </span>
         <span>{new Date(note.updated_at).toLocaleDateString()}</span>
       </div>
     </div>

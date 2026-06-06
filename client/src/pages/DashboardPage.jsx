@@ -320,10 +320,10 @@ export default function DashboardPage() {
     if (!activeWorkspace) return;
     setInviting(true);
     try {
-      await api.inviteMember(activeWorkspace.id, email);
+      const result = await api.inviteMember(activeWorkspace.id, email);
       const updatedMembers = await api.getMembers(activeWorkspace.id);
       setMembers(updatedMembers);
-      setView('team');
+      return result;
     } finally {
       setInviting(false);
     }

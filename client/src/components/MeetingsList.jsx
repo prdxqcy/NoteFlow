@@ -20,8 +20,68 @@ const inputCls =
 const dateCls =
   inputCls + ' [color-scheme:light] dark:[color-scheme:dark]';
 
+function GuestEmailChips({ guests, onChange }) {
+  const [input, setInput] = useState('');
+
+  function addGuest(raw) {
+    const val = raw.trim().toLowerCase();
+    if (!val || !val.includes('@')) return;
+    if (!guests.includes(val)) onChange([...guests, val]);
+    setInput('');
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
+      e.preventDefault();
+      addGuest(input);
+    }
+    if (e.key === 'Backspace' && !input && guests.length > 0) {
+      onChange(guests.slice(0, -1));
+    }
+  }
+
+  return (
+    <div>
+      <label className="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
+        Guest emails <span className="font-normal text-zinc-400">(external invitees via Google Calendar)</span>
+      </label>
+      <div
+        className="flex flex-wrap gap-1.5 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 focus-within:border-zinc-400 focus-within:bg-white dark:border-zinc-700 dark:bg-zinc-800 dark:focus-within:border-zinc-500 dark:focus-within:bg-zinc-750"
+        onClick={() => document.getElementById('guest-email-input')?.focus()}
+      >
+        {guests.map((g) => (
+          <span
+            key={g}
+            className="flex items-center gap-1 rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200"
+          >
+            {g}
+            <button
+              type="button"
+              onClick={() => onChange(guests.filter((x) => x !== g))}
+              className="leading-none text-zinc-500 hover:text-zinc-900 dark:hover:text-white"
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        <input
+          id="guest-email-input"
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onBlur={() => addGuest(input)}
+          placeholder={guests.length === 0 ? 'Type email and press Enter…' : ''}
+          className="min-w-[140px] flex-1 bg-transparent text-sm text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+        />
+      </div>
+    </div>
+  );
+}
+
 function CreateMeetingModal({ onClose, onCreate }) {
   const [form, setForm] = useState({ title: '', description: '', start_time: '', end_time: '' });
+  const [guests, setGuests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
 
@@ -29,7 +89,7 @@ function CreateMeetingModal({ onClose, onCreate }) {
     e.preventDefault();
     setLoading(true);
     try {
-      await onCreate(form);
+      await onCreate({ ...form, guest_emails: guests });
       onClose();
     } finally {
       setLoading(false);
@@ -90,6 +150,8 @@ function CreateMeetingModal({ onClose, onCreate }) {
               onChange={(e) => setForm({ ...form, description: e.target.value })}
             />
           </div>
+
+          <GuestEmailChips guests={guests} onChange={setGuests} />
 
           <div className="grid grid-cols-2 gap-3">
             <div>

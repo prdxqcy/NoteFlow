@@ -23,8 +23,9 @@ router.get('/workspace/:workspaceId', async (req, res) => {
        FROM notes n
        JOIN users u ON u.id = n.created_by
        WHERE n.workspace_id = $1
+         AND (NOT n.is_private OR n.created_by = $2)
        ORDER BY n.is_pinned DESC, n.updated_at DESC`,
-      [req.params.workspaceId]
+      [req.params.workspaceId, req.user.id]
     );
     res.json(rows);
   } catch (err) {
@@ -55,7 +56,7 @@ router.post('/', async (req, res) => {
 
 // Update a note
 router.patch('/:id', async (req, res) => {
-  const { title, content, color, is_pinned } = req.body;
+  const { title, content, color, is_pinned, is_private } = req.body;
   try {
     const { rows: noteRows } = await pool.query(
       'SELECT * FROM notes WHERE id = $1',
@@ -68,13 +69,14 @@ router.patch('/:id', async (req, res) => {
     }
     const { rows } = await pool.query(
       `UPDATE notes
-       SET title     = COALESCE($1, title),
-           content   = COALESCE($2, content),
-           color     = COALESCE($3, color),
-           is_pinned = COALESCE($4, is_pinned)
-       WHERE id = $5
+       SET title      = COALESCE($1, title),
+           content    = COALESCE($2, content),
+           color      = COALESCE($3, color),
+           is_pinned  = COALESCE($4, is_pinned),
+           is_private = COALESCE($5, is_private)
+       WHERE id = $6
        RETURNING *`,
-      [title, content, color, is_pinned, req.params.id]
+      [title, content, color, is_pinned, is_private, req.params.id]
     );
     res.json(rows[0]);
   } catch (err) {

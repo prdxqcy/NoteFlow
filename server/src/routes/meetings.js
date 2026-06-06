@@ -42,7 +42,7 @@ router.get('/workspace/:workspaceId', async (req, res) => {
 
 // Create a meeting
 router.post('/', async (req, res) => {
-  const { workspace_id, title, description, start_time, end_time, attendee_ids = [] } = req.body;
+  const { workspace_id, title, description, start_time, end_time, attendee_ids = [], guest_emails = [] } = req.body;
   if (!workspace_id || !title || !start_time) {
     return res.status(400).json({ error: 'workspace_id, title and start_time required' });
   }
@@ -52,10 +52,14 @@ router.post('/', async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    const validGuests = Array.isArray(guest_emails)
+      ? guest_emails.filter((e) => typeof e === 'string' && e.includes('@'))
+      : [];
+
     const { rows } = await client.query(
-      `INSERT INTO meetings (workspace_id, created_by, title, description, start_time, end_time)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [workspace_id, req.user.id, title, description || '', start_time, end_time || null]
+      `INSERT INTO meetings (workspace_id, created_by, title, description, start_time, end_time, guest_emails)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [workspace_id, req.user.id, title, description || '', start_time, end_time || null, validGuests]
     );
     const meeting = rows[0];
     const allAttendees = [...new Set([req.user.id, ...attendee_ids])];

@@ -31,6 +31,7 @@ export const api = {
   deleteWorkspace: (id) => request(`/workspaces/${id}`, { method: 'DELETE' }),
   inviteMember: (id, email) => request(`/workspaces/${id}/invite`, { method: 'POST', body: { email } }),
   getMembers: (id) => request(`/workspaces/${id}/members`),
+  getInvitation: (token) => request(`/invitations/${token}`),
 
   // notes
   getNotes: (workspaceId) => request(`/notes/workspace/${workspaceId}`),
