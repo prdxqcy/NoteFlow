@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { getSocket } from '../lib/socket';
 import { useAuth } from '../hooks/useAuth.jsx';
@@ -213,9 +214,11 @@ function MobileBottomNav({ view, onChangeView }) {
 export default function DashboardPage() {
   const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
+  const [searchParams] = useSearchParams();
   const [workspaces, setWorkspaces] = useState([]);
   const [activeWorkspace, setActiveWorkspace] = useState(null);
-  const [view, setView] = useState('notes');
+  // Switch to meetings view when returning from Google OAuth callback
+  const [view, setView] = useState(searchParams.get('google') ? 'meetings' : 'notes');
   const [notes, setNotes] = useState([]);
   const [meetings, setMeetings] = useState([]);
   const [members, setMembers] = useState([]);

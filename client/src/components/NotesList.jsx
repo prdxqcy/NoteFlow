@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import AiNoteAssistant from './AiNoteAssistant';
 
 const NOTE_COLORS = [
   { value: '#ffffff', label: 'Default' },
@@ -134,6 +135,7 @@ export default function NotesList({ notes, onCreate, onUpdate, onDelete }) {
             >
               + New note
             </button>
+            <AiNoteAssistant onCreate={onCreate} onUpdate={onUpdate} />
           </div>
         </div>
       </header>

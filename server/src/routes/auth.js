@@ -18,11 +18,15 @@ router.post('/register', async (req, res) => {
     );
     const user = rows[0];
 
-    // Auto-create a personal workspace
-    await pool.query(
+    // Auto-create a personal workspace and add user as owner member
+    const { rows: wsRows } = await pool.query(
       `INSERT INTO workspaces (name, owner_id, is_solo)
-       VALUES ($1, $2, true)`,
+       VALUES ($1, $2, true) RETURNING id`,
       ['Personal', user.id]
+    );
+    await pool.query(
+      `INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1, $2, 'owner')`,
+      [wsRows[0].id, user.id]
     );
 
     const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, {

@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
+const gcal = require('../services/googleCalendar');
 
 router.use(auth);
 
@@ -66,6 +67,18 @@ router.post('/', async (req, res) => {
       );
     }
     await client.query('COMMIT');
+
+    // Sync to Google Calendar (non-blocking — don't fail the request if Google is down)
+    gcal.createEvent(req.user.id, meeting).then(async (googleEventId) => {
+      if (googleEventId) {
+        await pool.query('UPDATE meetings SET google_event_id = $1 WHERE id = $2', [
+          googleEventId,
+          meeting.id,
+        ]);
+        meeting.google_event_id = googleEventId;
+      }
+    }).catch((err) => console.error('gcal create background error:', err));
+
     res.status(201).json(meeting);
   } catch (err) {
     await client.query('ROLLBACK');
@@ -96,7 +109,15 @@ router.patch('/:id', async (req, res) => {
        WHERE id = $6 RETURNING *`,
       [title, description, start_time, end_time, status, req.params.id]
     );
-    res.json(rows[0]);
+    const updated = rows[0];
+
+    // Sync update to Google Calendar
+    if (updated.google_event_id) {
+      gcal.updateEvent(meeting.created_by, updated.google_event_id, updated)
+        .catch((err) => console.error('gcal update background error:', err));
+    }
+
+    res.json(updated);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
@@ -110,6 +131,12 @@ router.delete('/:id', async (req, res) => {
     const meeting = rows[0];
     if (!meeting) return res.status(404).json({ error: 'Not found' });
     if (meeting.created_by !== req.user.id) return res.status(403).json({ error: 'Only creator can delete' });
+
+    // Delete from Google Calendar before removing from DB
+    if (meeting.google_event_id) {
+      await gcal.deleteEvent(req.user.id, meeting.google_event_id);
+    }
+
     await pool.query('DELETE FROM meetings WHERE id = $1', [req.params.id]);
     res.json({ ok: true });
   } catch (err) {

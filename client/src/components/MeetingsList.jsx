@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
+import { api } from '../lib/api';
+import GoogleCalendarConnect from './GoogleCalendarConnect';
 
 function TrashIcon() {
   return (
@@ -15,6 +17,7 @@ function TrashIcon() {
 function CreateMeetingModal({ onClose, onCreate }) {
   const [form, setForm] = useState({ title: '', description: '', start_time: '', end_time: '' });
   const [loading, setLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -24,6 +27,19 @@ function CreateMeetingModal({ onClose, onCreate }) {
       onClose();
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function generateAgenda() {
+    if (!form.title.trim()) return;
+    setAiLoading(true);
+    try {
+      const result = await api.aiMeetingAgenda(form.title, form.description);
+      setForm((f) => ({ ...f, description: result.agenda }));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setAiLoading(false);
     }
   }
 
@@ -39,13 +55,27 @@ function CreateMeetingModal({ onClose, onCreate }) {
             value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
           />
-          <textarea
-            placeholder="Description (optional)"
-            className="w-full resize-none rounded-lg bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 placeholder:text-zinc-400 focus:ring-amber-400 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-700 dark:placeholder:text-zinc-600 dark:focus:ring-zinc-500"
-            rows={2}
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-          />
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <label className="text-xs text-zinc-500">Description / Agenda</label>
+              <button
+                type="button"
+                onClick={generateAgenda}
+                disabled={aiLoading || !form.title.trim()}
+                className="flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-40 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              >
+                <span className="text-sm leading-none">✦</span>
+                {aiLoading ? 'Generating…' : 'AI agenda'}
+              </button>
+            </div>
+            <textarea
+              placeholder="Add context or let AI generate an agenda"
+              className="w-full resize-none rounded-lg bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 placeholder:text-zinc-400 focus:ring-amber-400 dark:bg-zinc-800 dark:text-zinc-100 dark:ring-zinc-700 dark:placeholder:text-zinc-600 dark:focus:ring-zinc-500"
+              rows={3}
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+            />
+          </div>
           <div className="flex gap-2">
             <div className="flex-1">
               <label className="mb-1 block text-xs text-zinc-500 dark:text-zinc-500">Start</label>
@@ -154,6 +184,9 @@ export default function MeetingsList({ meetings, onCreate, onDelete, forceCompos
             </button>
           </div>
         </div>
+        <div className="mt-3">
+          <GoogleCalendarConnect />
+        </div>
       </header>
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         {filteredMeetings.length === 0 ? (
@@ -189,11 +222,19 @@ export default function MeetingsList({ meetings, onCreate, onDelete, forceCompos
                   </span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{m.title}</span>
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[m.status] || STATUS_STYLES.scheduled}`}>
                       {m.status}
                     </span>
+                    {m.google_event_id && (
+                      <span className="flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-500" title="Synced to Google Calendar">
+                        <svg viewBox="0 0 24 24" className="h-3 w-3" aria-hidden="true">
+                          <path fill="currentColor" d="M19 3h-1V1h-2v2H8V1H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H5V9h14v10zM5 7V5h14v2H5z" />
+                        </svg>
+                        GCal
+                      </span>
+                    )}
                   </div>
                   {m.description && (
                     <p className="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-500">{m.description}</p>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useDesktopBridge } from '../hooks/useDesktopBridge';
+import GoogleCalendarConnect from './GoogleCalendarConnect';
 
 export default function SettingsPanel() {
   const desktop = useDesktopBridge();
@@ -108,6 +109,15 @@ export default function SettingsPanel() {
           </section>
 
           <aside className="space-y-4">
+            <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/90">
+              <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-500">Integrations</p>
+              <h3 className="mt-2 text-base font-semibold text-zinc-900 dark:text-zinc-100">Google Calendar</h3>
+              <p className="mb-4 mt-1 text-sm text-zinc-500 dark:text-zinc-500">
+                Meetings you create are automatically added to your Google Calendar. Attendees receive Google invite emails and notifications.
+              </p>
+              <GoogleCalendarConnect />
+            </section>
+
             <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/90">
               <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-500">Desktop Behavior</p>
               <div className="mt-3 space-y-3 text-sm text-zinc-600 dark:text-zinc-400">

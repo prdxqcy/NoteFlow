@@ -43,4 +43,17 @@ export const api = {
   createMeeting: (body) => request('/meetings', { method: 'POST', body }),
   updateMeeting: (id, body) => request(`/meetings/${id}`, { method: 'PATCH', body }),
   deleteMeeting: (id) => request(`/meetings/${id}`, { method: 'DELETE' }),
+
+  // google calendar
+  googleConnectUrl: () => request('/google/connect-url'),
+  googleStatus: () => request('/google/status'),
+  googleDisconnect: () => request('/google/disconnect', { method: 'DELETE' }),
+
+  // ai
+  aiGenerateNote: (prompt) => request('/ai/generate-note', { method: 'POST', body: { prompt } }),
+  aiImproveNote: (title, content, instruction) =>
+    request('/ai/improve-note', { method: 'POST', body: { title, content, instruction } }),
+  aiSummarize: (content) => request('/ai/summarize', { method: 'POST', body: { content } }),
+  aiMeetingAgenda: (title, description) =>
+    request('/ai/meeting-agenda', { method: 'POST', body: { title, description } }),
 };

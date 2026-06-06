@@ -79,6 +79,21 @@ async function migrate() {
       );
     `);
 
+    await client.query(`
+      ALTER TABLE meetings ADD COLUMN IF NOT EXISTS google_event_id TEXT;
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS google_tokens (
+        user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        access_token TEXT NOT NULL,
+        refresh_token TEXT,
+        token_expiry TIMESTAMPTZ,
+        google_email TEXT,
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
     // Keep notes updated_at fresh automatically
     await client.query(`
       CREATE OR REPLACE FUNCTION update_updated_at()

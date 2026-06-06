@@ -37,6 +37,8 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/workspaces', require('./routes/workspaces'));
 app.use('/api/notes', require('./routes/notes'));
 app.use('/api/meetings', require('./routes/meetings'));
+app.use('/api/google', require('./routes/google'));
+app.use('/api/ai', require('./routes/ai'));
 
 app.get('/api/health', (_, res) => res.json({ ok: true }));
 
