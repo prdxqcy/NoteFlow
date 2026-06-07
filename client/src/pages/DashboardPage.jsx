@@ -349,7 +349,7 @@ export default function DashboardPage() {
   }, [activeWorkspace]);
 
   return (
-    <div className="flex min-h-screen flex-col bg-stone-100 dark:bg-zinc-950 lg:h-screen lg:flex-row lg:overflow-hidden">
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-stone-100 dark:bg-zinc-950 lg:flex-row">
       <Sidebar
         workspaces={workspaces}
         activeWorkspace={activeWorkspace}
