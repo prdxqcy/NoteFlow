@@ -326,7 +326,7 @@ export default function QuickCapturePage({ initialType = 'note' }) {
 
               <div className="flex items-center justify-between gap-3 border-t border-zinc-800 pt-4">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-zinc-300">{user?.display_name || 'NoteFlow'}</p>
+                  <p className="truncate text-sm font-medium text-zinc-300">{user?.display_name || 'Cove'}</p>
                   <p className="text-xs text-zinc-500">Press Esc to close</p>
                 </div>
                 <div className="flex gap-2">

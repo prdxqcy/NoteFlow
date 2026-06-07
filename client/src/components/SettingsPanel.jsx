@@ -36,7 +36,7 @@ export default function SettingsPanel() {
             <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-500">Desktop Shortcuts</p>
             <h3 className="mt-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100">Global hotkeys</h3>
             <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-500">
-              These work from the Electron app, even when NoteFlow is hidden to the tray.
+              These work from the Electron app, even when Cove is hidden to the tray.
             </p>
 
             {desktop.available ? (
@@ -103,7 +103,7 @@ export default function SettingsPanel() {
               </form>
             ) : (
               <p className="mt-5 rounded-xl bg-zinc-100 px-3 py-3 text-sm text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-                Open NoteFlow through the Electron desktop app to manage tray and global shortcuts here.
+                Open Cove through the Electron desktop app to manage tray and global shortcuts here.
               </p>
             )}
           </section>
@@ -121,7 +121,7 @@ export default function SettingsPanel() {
             <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/90">
               <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-500">Desktop Behavior</p>
               <div className="mt-3 space-y-3 text-sm text-zinc-600 dark:text-zinc-400">
-                <p>Closing the desktop window hides NoteFlow to the tray instead of quitting.</p>
+                <p>Closing the desktop window hides Cove to the tray instead of quitting.</p>
                 <p>New note and new meeting shortcuts open a focused quick-capture window instead of the full app.</p>
                 <p>The tray icon can reopen the app or launch those same quick actions from anywhere on your desktop.</p>
               </div>

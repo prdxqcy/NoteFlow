@@ -13,7 +13,7 @@ export function useDesktopBridge() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    const bridge = window.noteflowDesktop;
+    const bridge = window.coveDesktop;
     if (!bridge?.isAvailable) {
       setLoading(false);
       return;
@@ -38,7 +38,7 @@ export function useDesktopBridge() {
   }, []);
 
   async function saveSettings(nextSettings) {
-    const bridge = window.noteflowDesktop;
+    const bridge = window.coveDesktop;
     if (!bridge?.isAvailable) return;
 
     setSaving(true);

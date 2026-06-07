@@ -1,6 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-contextBridge.exposeInMainWorld('noteflowDesktop', {
+contextBridge.exposeInMainWorld('coveDesktop', {
   isAvailable: true,
   getSettings: () => ipcRenderer.invoke('desktop:get-settings'),
   updateSettings: (settings) => ipcRenderer.invoke('desktop:update-settings', settings),

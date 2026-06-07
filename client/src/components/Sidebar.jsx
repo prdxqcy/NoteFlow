@@ -73,7 +73,7 @@ export default function Sidebar({
           ) : (
             <>
               <div>
-                <span className="text-lg font-bold tracking-tight text-zinc-900 dark:text-white">NoteFlow</span>
+                <span className="text-lg font-bold tracking-tight text-zinc-900 dark:text-white">Cove</span>
                 <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-700 dark:bg-zinc-800 dark:text-zinc-400">
                   Beta
                 </span>

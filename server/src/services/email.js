@@ -10,7 +10,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const FROM = `"NoteFlow" <${process.env.SMTP_USER}>`;
+const FROM = `"Cove" <${process.env.SMTP_USER}>`;
 const CLIENT_URL = (process.env.CLIENT_URLS || process.env.CLIENT_URL || 'http://localhost:5173')
   .split(',')[0]
   .trim();
@@ -21,7 +21,7 @@ async function sendWorkspaceInvite({ toEmail, workspaceName, inviterName, token 
   await transporter.sendMail({
     from: FROM,
     to: toEmail,
-    subject: `${inviterName} invited you to "${workspaceName}" on NoteFlow`,
+    subject: `${inviterName} invited you to "${workspaceName}" on Cove`,
     html: `
 <!DOCTYPE html>
 <html>
@@ -38,7 +38,7 @@ async function sendWorkspaceInvite({ toEmail, workspaceName, inviterName, token 
             <td style="padding:32px 32px 0;text-align:center;">
               <div style="display:inline-flex;align-items:center;gap:8px;">
                 <div style="width:32px;height:32px;background:#18181b;border-radius:8px;display:inline-block;"></div>
-                <span style="font-size:18px;font-weight:700;color:#18181b;vertical-align:middle;">NoteFlow</span>
+                <span style="font-size:18px;font-weight:700;color:#18181b;vertical-align:middle;">Cove</span>
               </div>
             </td>
           </tr>
@@ -47,7 +47,7 @@ async function sendWorkspaceInvite({ toEmail, workspaceName, inviterName, token 
               <h1 style="margin:0;font-size:22px;font-weight:700;color:#18181b;">You're invited!</h1>
               <p style="margin:12px 0 0;font-size:15px;color:#52525b;line-height:1.6;">
                 <strong style="color:#18181b;">${inviterName}</strong> has invited you to collaborate on
-                <strong style="color:#18181b;">${workspaceName}</strong> in NoteFlow.
+                <strong style="color:#18181b;">${workspaceName}</strong> in Cove.
               </p>
               <p style="margin:8px 0 0;font-size:14px;color:#71717a;line-height:1.6;">
                 Create your account to start collaborating on notes and meetings.
@@ -84,7 +84,7 @@ async function sendWorkspaceInvite({ toEmail, workspaceName, inviterName, token 
 </body>
 </html>
     `.trim(),
-    text: `${inviterName} invited you to "${workspaceName}" on NoteFlow.\n\nAccept your invitation: ${link}\n\nIf you weren't expecting this, ignore this email.`,
+    text: `${inviterName} invited you to "${workspaceName}" on Cove.\n\nAccept your invitation: ${link}\n\nIf you weren't expecting this, ignore this email.`,
   });
 }
 

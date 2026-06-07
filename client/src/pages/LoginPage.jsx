@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth.jsx';
 import { useTheme } from '../hooks/useTheme.jsx';
 import BrandMark from '../components/BrandMark';
 
-const GITHUB_REPO = import.meta.env.VITE_GITHUB_REPO || 'prdxqcy/NoteFlow';
+const GITHUB_REPO = import.meta.env.VITE_GITHUB_REPO || 'prdxqcy/Cove';
 const DEFAULT_RELEASES_URL = `https://github.com/${GITHUB_REPO}/releases/latest`;
 const DEFAULT_DOWNLOAD_URL = import.meta.env.VITE_DESKTOP_DOWNLOAD_URL || DEFAULT_RELEASES_URL;
 

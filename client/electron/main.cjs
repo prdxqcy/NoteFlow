@@ -16,9 +16,9 @@ const appRoot = path.resolve(__dirname, '..');
 const rendererUrl = process.env.ELECTRON_RENDERER_URL;
 const settingsFile = path.join(app.getPath('userData'), 'desktop-settings.json');
 const defaultSettings = {
-  toggleHotkey: process.env.NOTEFLOW_HOTKEY || 'CommandOrControl+Alt+N',
-  newNoteHotkey: process.env.NOTEFLOW_NEW_NOTE_HOTKEY || 'CommandOrControl+Shift+N',
-  newMeetingHotkey: process.env.NOTEFLOW_NEW_MEETING_HOTKEY || 'CommandOrControl+Shift+M',
+  toggleHotkey: process.env.Cove_HOTKEY || 'CommandOrControl+Alt+N',
+  newNoteHotkey: process.env.Cove_NEW_NOTE_HOTKEY || 'CommandOrControl+Shift+N',
+  newMeetingHotkey: process.env.Cove_NEW_MEETING_HOTKEY || 'CommandOrControl+Shift+M',
 };
 
 let mainWindow = null;
@@ -80,7 +80,7 @@ function createMainWindow() {
     minHeight: 640,
     autoHideMenuBar: true,
     backgroundColor: '#09090b',
-    title: 'NoteFlow',
+    title: 'Cove',
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -136,7 +136,7 @@ function createQuickCaptureWindow(type = 'note') {
     alwaysOnTop: true,
     frame: false,
     backgroundColor: '#0b0c0f',
-    title: type === 'meeting' ? 'New Meeting - NoteFlow' : 'New Note - NoteFlow',
+    title: type === 'meeting' ? 'New Meeting - Cove' : 'New Note - Cove',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -196,7 +196,7 @@ function toggleMainWindow() {
 
 function openQuickCaptureWindow(type = 'note') {
   if (quickCaptureWindow && !quickCaptureWindow.isDestroyed()) {
-    quickCaptureWindow.setTitle(type === 'meeting' ? 'New Meeting - NoteFlow' : 'New Note - NoteFlow');
+    quickCaptureWindow.setTitle(type === 'meeting' ? 'New Meeting - Cove' : 'New Note - Cove');
     quickCaptureWindow.setSize(520, type === 'meeting' ? 690 : 620);
     quickCaptureWindow.loadURL(getAppUrl(`?quickCapture=${type}`));
     if (quickCaptureWindow.isMinimized()) quickCaptureWindow.restore();
@@ -234,15 +234,15 @@ function registerHotkeys() {
 
 function createTray() {
   tray = new Tray(createTrayIcon());
-  tray.setToolTip('NoteFlow');
+  tray.setToolTip('Cove');
   tray.on('click', toggleMainWindow);
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: 'Show NoteFlow', click: showMainWindow },
+      { label: 'Show Cove', click: showMainWindow },
       { label: 'New Note', click: () => openQuickCaptureWindow('note') },
       { label: 'New Meeting', click: () => openQuickCaptureWindow('meeting') },
       { type: 'separator' },
-      { label: 'Hide NoteFlow', click: hideMainWindow },
+      { label: 'Hide Cove', click: hideMainWindow },
       {
         label: 'Quit',
         click: () => {
@@ -280,7 +280,7 @@ const singleInstanceLock = app.requestSingleInstanceLock();
 if (!singleInstanceLock) {
   app.quit();
 } else {
-  app.setAppUserModelId('com.noteflow.desktop');
+  app.setAppUserModelId('com.cove.app');
 
   app.on('second-instance', () => {
     showMainWindow();

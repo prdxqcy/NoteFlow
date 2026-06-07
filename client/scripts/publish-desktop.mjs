@@ -54,12 +54,12 @@ await run(['node_modules/electron-builder/cli.js', '--win', 'portable']);
 const latest = await findLatestPortableExe();
 await fs.mkdir(publicDownloadsDir, { recursive: true });
 
-const latestFilename = 'NoteFlow-Desktop-latest.exe';
+const latestFilename = 'Cove-Desktop-latest.exe';
 const latestTarget = path.join(publicDownloadsDir, latestFilename);
 await fs.copyFile(latest.file, latestTarget);
 
 const metadata = {
-  productName: 'NoteFlow Desktop',
+  productName: 'Cove Desktop',
   version: packageJson.version,
   file: `/downloads/${latestFilename}`,
   originalFile: path.basename(latest.file),

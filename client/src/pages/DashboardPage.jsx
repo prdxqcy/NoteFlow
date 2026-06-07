@@ -44,7 +44,7 @@ function MobileShell({
       <div className="absolute inset-x-0 top-0 rounded-b-[28px] border-b border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">NoteFlow</p>
+            <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Cove</p>
             <p className="text-sm text-zinc-500 dark:text-zinc-500">Choose a workspace and tune your app.</p>
           </div>
           <button

@@ -14,8 +14,8 @@ export default defineConfig(({ mode }) => {
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'favicon.png', 'favicon.svg', 'apple-touch-icon.png'],
         manifest: {
-          name: 'NoteFlow',
-          short_name: 'NoteFlow',
+          name: 'Cove',
+          short_name: 'Cove',
           description: 'Notes, meetings and collaboration',
           theme_color: '#18181b',
           background_color: '#18181b',

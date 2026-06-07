@@ -32,8 +32,8 @@
     "vite-plugin-pwa": "^0.20.1"
   },
   "build": {
-    "appId": "com.noteflow.desktop",
-    "productName": "NoteFlow",
+    "appId": "com.Cove.desktop",
+    "productName": "Cove",
     "directories": {
       "output": "release"
     },
@@ -55,7 +55,7 @@
           ]
         }
       ],
-      "artifactName": "NoteFlow-Desktop-${version}.${ext}"
+      "artifactName": "Cove-Desktop-${version}.${ext}"
     },
     "mac": {
       "category": "public.app-category.productivity",
@@ -73,7 +73,7 @@
           ]
         }
       ],
-      "artifactName": "NoteFlow-Desktop-${version}-${arch}.${ext}"
+      "artifactName": "Cove-Desktop-${version}-${arch}.${ext}"
     }
   }
 }
