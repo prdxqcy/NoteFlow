@@ -53,6 +53,28 @@ export const api = {
     request(`/workspaces/${id}/members/${userId}`, { method: 'DELETE' }),
   getInvitation: (token) => request(`/invitations/${token}`),
 
+  // power features
+  getPowerOverview: (workspaceId) => request(`/productivity/workspace/${workspaceId}/overview`),
+  powerSearch: (workspaceId, query, hasScreenshot = false) =>
+    request(`/productivity/workspace/${workspaceId}/search?q=${encodeURIComponent(query)}&has_screenshot=${hasScreenshot}`),
+  createTask: (body) => request('/productivity/tasks', { method: 'POST', body }),
+  updateTask: (id, body) => request(`/productivity/tasks/${id}`, { method: 'PATCH', body }),
+  deleteTask: (id) => request(`/productivity/tasks/${id}`, { method: 'DELETE' }),
+  getNoteDetails: (noteId) => request(`/productivity/notes/${noteId}/details`),
+  addComment: (noteId, body) => request(`/productivity/notes/${noteId}/comments`, { method: 'POST', body: { body } }),
+  resolveComment: (id, resolved) => request(`/productivity/comments/${id}`, { method: 'PATCH', body: { resolved } }),
+  addAnnotation: (imageId, body) => request(`/productivity/images/${imageId}/annotations`, { method: 'POST', body }),
+  deleteAnnotation: (id) => request(`/productivity/annotations/${id}`, { method: 'DELETE' }),
+  restoreVersion: (noteId, versionId) => request(`/productivity/notes/${noteId}/restore/${versionId}`, { method: 'POST' }),
+  createTemplate: (body) => request('/productivity/templates', { method: 'POST', body }),
+  useTemplate: (id) => request(`/productivity/templates/${id}/use`, { method: 'POST' }),
+  deleteTemplate: (id) => request(`/productivity/templates/${id}`, { method: 'DELETE' }),
+  shareNote: (noteId, body = {}) => request(`/productivity/notes/${noteId}/share`, { method: 'POST', body }),
+  revokeShare: (token) => request(`/productivity/shares/${token}`, { method: 'DELETE' }),
+  readNotification: (id) => request(`/productivity/notifications/${id}/read`, { method: 'PATCH' }),
+  updateMemberPermissions: (workspaceId, userId, permissions) =>
+    request(`/productivity/workspace/${workspaceId}/members/${userId}/permissions`, { method: 'PATCH', body: { permissions } }),
+
   // notes
   getNotes: (workspaceId) => request(`/notes/workspace/${workspaceId}`),
   createNote: (body) => request('/notes', { method: 'POST', body }),
@@ -92,4 +114,7 @@ export const api = {
   aiSummarize: (content) => request('/ai/summarize', { method: 'POST', body: { content } }),
   aiMeetingAgenda: (title, description) =>
     request('/ai/meeting-agenda', { method: 'POST', body: { title, description } }),
+  aiWorkspaceInsights: (workspace_id, prompt) =>
+    request('/ai/workspace-insights', { method: 'POST', body: { workspace_id, prompt } }),
+  aiExtractTasks: (content) => request('/ai/extract-tasks', { method: 'POST', body: { content } }),
 };

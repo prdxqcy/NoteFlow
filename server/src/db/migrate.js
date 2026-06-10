@@ -146,6 +146,7 @@ async function migrate() {
       ALTER TABLE note_images ADD COLUMN IF NOT EXISTS context_title TEXT;
       ALTER TABLE note_images ADD COLUMN IF NOT EXISTS context_content TEXT;
       ALTER TABLE note_images ADD COLUMN IF NOT EXISTS context_updated_at TIMESTAMPTZ;
+      ALTER TABLE note_images ADD COLUMN IF NOT EXISTS ocr_text TEXT NOT NULL DEFAULT '';
     `);
 
     await client.query(`
@@ -163,6 +164,107 @@ async function migrate() {
     await client.query(`
       ALTER TABLE note_images
       ADD COLUMN IF NOT EXISTS section_id UUID REFERENCES note_sections(id) ON DELETE SET NULL;
+    `);
+
+    await client.query(`
+      ALTER TABLE workspace_members
+      ADD COLUMN IF NOT EXISTS permissions JSONB NOT NULL DEFAULT '{}';
+
+      CREATE TABLE IF NOT EXISTS tasks (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        note_id UUID REFERENCES notes(id) ON DELETE SET NULL,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'todo',
+        priority TEXT NOT NULL DEFAULT 'medium',
+        assigned_to UUID REFERENCES users(id) ON DELETE SET NULL,
+        due_at TIMESTAMPTZ,
+        created_by UUID NOT NULL REFERENCES users(id),
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS note_versions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        note_id UUID NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL DEFAULT '',
+        created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS note_comments (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        note_id UUID NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        body TEXT NOT NULL,
+        resolved_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS image_annotations (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        image_id UUID NOT NULL REFERENCES note_images(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        kind TEXT NOT NULL DEFAULT 'comment',
+        x NUMERIC NOT NULL,
+        y NUMERIC NOT NULL,
+        width NUMERIC,
+        height NUMERIC,
+        color TEXT NOT NULL DEFAULT '#10b981',
+        body TEXT NOT NULL DEFAULT '',
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS note_templates (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        title TEXT NOT NULL DEFAULT 'Untitled',
+        content TEXT NOT NULL DEFAULT '',
+        created_by UUID NOT NULL REFERENCES users(id),
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS public_shares (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        note_id UUID NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+        token UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+        expires_at TIMESTAMPTZ,
+        created_by UUID NOT NULL REFERENCES users(id),
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      ALTER TABLE public_shares ADD COLUMN IF NOT EXISTS password_hash TEXT;
+
+      CREATE TABLE IF NOT EXISTS workspace_activity (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+        action TEXT NOT NULL,
+        entity_type TEXT NOT NULL,
+        entity_id UUID,
+        details JSONB NOT NULL DEFAULT '{}',
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS notifications (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE,
+        type TEXT NOT NULL,
+        message TEXT NOT NULL,
+        entity_type TEXT,
+        entity_id UUID,
+        read_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS tasks_workspace_idx ON tasks(workspace_id);
+      CREATE INDEX IF NOT EXISTS activity_workspace_idx ON workspace_activity(workspace_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS notifications_user_idx ON notifications(user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS comments_note_idx ON note_comments(note_id, created_at);
     `);
 
     // Workspace email invitations (for users without accounts yet)

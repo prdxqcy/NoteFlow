@@ -46,7 +46,7 @@ function GripIcon() {
   );
 }
 
-function NoteImage({ image, onDelete }) {
+function NoteImage({ image, onDelete, onAddAnnotation, onDeleteAnnotation }) {
   const [url, setUrl] = useState('');
 
   useEffect(() => {
@@ -66,9 +66,33 @@ function NoteImage({ image, onDelete }) {
   return (
     <div className="group/image relative overflow-hidden rounded-xl border border-black/10 bg-zinc-100 dark:border-white/10 dark:bg-zinc-800">
       {url ? (
-        <a href={url} target="_blank" rel="noreferrer" title="Open full-size screenshot">
-          <img src={url} alt="Note screenshot" className="max-h-56 w-full object-cover" />
-        </a>
+        <div className="relative">
+          <img
+            src={url}
+            alt="Note screenshot"
+            className="max-h-56 w-full cursor-crosshair object-cover"
+            title="Click to pin feedback"
+            onClick={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect();
+              const kind = window.prompt('Annotation type: comment, highlight, box, or arrow', 'comment') || 'comment';
+              const body = window.prompt('Pinned screenshot comment');
+              if (!body) return;
+              onAddAnnotation(image.id, {
+                kind,
+                x: ((event.clientX - rect.left) / rect.width) * 100,
+                y: ((event.clientY - rect.top) / rect.height) * 100,
+                width: kind === 'comment' ? null : 20,
+                height: kind === 'comment' ? null : 15,
+                body,
+              });
+            }}
+          />
+          {(image.annotations || []).map((annotation, index) => ['comment', 'arrow'].includes(annotation.kind) ? (
+              <button key={annotation.id} type="button" onClick={() => window.confirm(`Delete annotation: ${annotation.body}?`) && onDeleteAnnotation(image.id, annotation.id)} title={`${annotation.display_name || 'Member'}: ${annotation.body} (click to delete)`} className="absolute flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-bold text-white shadow ring-2 ring-white" style={{ left: `${annotation.x}%`, top: `${annotation.y}%` }}>{annotation.kind === 'arrow' ? '→' : index + 1}</button>
+            ) : (
+              <div key={annotation.id} title={`${annotation.display_name || 'Member'}: ${annotation.body}`} className={`pointer-events-none absolute border-2 border-emerald-500 ${annotation.kind === 'highlight' ? 'bg-yellow-300/35' : 'bg-transparent'}`} style={{ left: `${annotation.x}%`, top: `${annotation.y}%`, width: `${annotation.width || 20}%`, height: `${annotation.height || 15}%` }} />
+            ))}
+        </div>
       ) : (
         <div className="h-28 animate-pulse bg-zinc-200 dark:bg-zinc-800" />
       )}
@@ -93,7 +117,7 @@ function formatContextDate(value) {
   });
 }
 
-function ScreenshotGroup({ images, onDeleteImage }) {
+function ScreenshotGroup({ images, onDeleteImage, onAddAnnotation, onDeleteAnnotation }) {
   const context = images[0];
 
   return (
@@ -117,14 +141,14 @@ function ScreenshotGroup({ images, onDeleteImage }) {
       )}
       <div className="grid gap-2 p-2">
         {images.map((image) => (
-          <NoteImage key={image.id} image={image} onDelete={() => onDeleteImage(image.id)} />
+          <NoteImage key={image.id} image={image} onDelete={() => onDeleteImage(image.id)} onAddAnnotation={onAddAnnotation} onDeleteAnnotation={onDeleteAnnotation} />
         ))}
       </div>
     </section>
   );
 }
 
-function MergedNoteSection({ section, images, onUpdate, onDeleteImage }) {
+function MergedNoteSection({ section, images, onUpdate, onDeleteImage, onAddAnnotation, onDeleteAnnotation }) {
   const [title, setTitle] = useState(section.title);
   const [content, setContent] = useState(section.content);
   const saveTimer = useRef(null);
@@ -169,7 +193,7 @@ function MergedNoteSection({ section, images, onUpdate, onDeleteImage }) {
       {images.length > 0 && (
         <div className="grid gap-2 p-2">
           {images.map((image) => (
-            <NoteImage key={image.id} image={image} onDelete={() => onDeleteImage(image.id)} />
+            <NoteImage key={image.id} image={image} onDelete={() => onDeleteImage(image.id)} onAddAnnotation={onAddAnnotation} onDeleteAnnotation={onDeleteAnnotation} />
           ))}
         </div>
       )}
@@ -188,6 +212,8 @@ function NoteCard({
   onDelete,
   onAddImage,
   onDeleteImage,
+  onAddAnnotation,
+  onDeleteAnnotation,
 }) {
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
@@ -384,6 +410,8 @@ function NoteCard({
               images={(note.images || []).filter((image) => image.section_id === section.id)}
               onUpdate={(sectionId, patch) => onUpdateSection(note.id, sectionId, patch)}
               onDeleteImage={(imageId) => onDeleteImage(note.id, imageId)}
+              onAddAnnotation={onAddAnnotation}
+              onDeleteAnnotation={onDeleteAnnotation}
             />
           ))}
         </div>
@@ -395,6 +423,8 @@ function NoteCard({
               key={`${images[0].context_title || 'screenshot'}:${images[0].id}`}
               images={images}
               onDeleteImage={(imageId) => onDeleteImage(note.id, imageId)}
+              onAddAnnotation={onAddAnnotation}
+              onDeleteAnnotation={onDeleteAnnotation}
             />
           ))}
         </div>
@@ -442,6 +472,8 @@ export default function NotesList({
   onDelete,
   onAddImage,
   onDeleteImage,
+  onAddAnnotation,
+  onDeleteAnnotation,
   onMerge,
 }) {
   const [query, setQuery] = useState('');
@@ -667,6 +699,8 @@ export default function NotesList({
                   onDelete={onDelete}
                   onAddImage={onAddImage}
                   onDeleteImage={onDeleteImage}
+                  onAddAnnotation={onAddAnnotation}
+                  onDeleteAnnotation={onDeleteAnnotation}
                 />
               </div>
             ))}

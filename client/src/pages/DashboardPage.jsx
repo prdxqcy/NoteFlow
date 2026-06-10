@@ -9,6 +9,7 @@ import NotesList from '../components/NotesList';
 import MeetingsList from '../components/MeetingsList';
 import TeamPanel from '../components/TeamPanel';
 import SettingsPanel from '../components/SettingsPanel';
+import PowerPanel from '../components/PowerPanel';
 
 function MobileShell({
   open,
@@ -186,12 +187,13 @@ function MobileBottomNav({ view, onChangeView }) {
     { id: 'notes', label: 'Notes', icon: '📝' },
     { id: 'meetings', label: 'Meetings', icon: '📅' },
     { id: 'team', label: 'Team', icon: '🤝' },
+    { id: 'power', label: 'Power', icon: '⚡' },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
   ];
 
   return (
     <nav className="sticky bottom-0 z-20 border-t border-zinc-200 bg-white/95 px-4 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-3 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95 lg:hidden">
-      <div className="grid grid-cols-4 gap-2 rounded-[28px] bg-zinc-100 p-1.5 shadow-sm dark:bg-zinc-900">
+      <div className="grid grid-cols-5 gap-1 rounded-[28px] bg-zinc-100 p-1.5 shadow-sm dark:bg-zinc-900">
         {items.map((item) => (
           <button
             key={item.id}
@@ -338,6 +340,30 @@ export default function DashboardPage() {
     );
   }, []);
 
+  const handleAddAnnotation = useCallback(async (imageId, annotation) => {
+    const created = await api.addAnnotation(imageId, annotation);
+    setNotes((prev) => prev.map((note) => ({
+      ...note,
+      images: (note.images || []).map((image) => (
+        image.id === imageId
+          ? { ...image, annotations: [...(image.annotations || []), created] }
+          : image
+      )),
+    })));
+  }, []);
+
+  const handleDeleteAnnotation = useCallback(async (imageId, annotationId) => {
+    await api.deleteAnnotation(annotationId);
+    setNotes((prev) => prev.map((note) => ({
+      ...note,
+      images: (note.images || []).map((image) => (
+        image.id === imageId
+          ? { ...image, annotations: (image.annotations || []).filter((item) => item.id !== annotationId) }
+          : image
+      )),
+    })));
+  }, []);
+
   const handleMergeNotes = useCallback(async (sourceId, targetId) => {
     const merged = await api.mergeNotes(targetId, sourceId);
     setNotes((prev) =>
@@ -413,6 +439,14 @@ export default function DashboardPage() {
     } finally {
       setManagingMemberId(null);
     }
+  }, [activeWorkspace]);
+
+  const handleUpdateMemberPermissions = useCallback(async (userId, permissions) => {
+    if (!activeWorkspace) return;
+    const updated = await api.updateMemberPermissions(activeWorkspace.id, userId, permissions);
+    setMembers((prev) => prev.map((member) => (
+      member.id === userId ? { ...member, permissions: updated.permissions } : member
+    )));
   }, [activeWorkspace]);
 
   const handleDeleteWorkspace = useCallback(async () => {
@@ -512,6 +546,8 @@ export default function DashboardPage() {
               onDelete={handleDeleteNote}
               onAddImage={handleAddNoteImage}
               onDeleteImage={handleDeleteNoteImage}
+              onAddAnnotation={handleAddAnnotation}
+              onDeleteAnnotation={handleDeleteAnnotation}
               onMerge={handleMergeNotes}
             />
           ) : view === 'meetings' ? (
@@ -535,9 +571,23 @@ export default function DashboardPage() {
               managingMemberId={managingMemberId}
               onUpdateMemberRole={handleUpdateMemberRole}
               onRemoveMember={handleRemoveMember}
+              onUpdateMemberPermissions={handleUpdateMemberPermissions}
               canDeleteWorkspace={canDeleteWorkspace}
               deletingWorkspace={deletingWorkspace}
               onDeleteWorkspace={handleDeleteWorkspace}
+            />
+          ) : view === 'power' ? (
+            <PowerPanel
+              workspace={activeWorkspace}
+              notes={notes}
+              members={members}
+              onNoteCreated={(note) => {
+                setNotes((prev) => [note, ...prev]);
+                setView('notes');
+              }}
+              onNoteRestored={(note) => setNotes((prev) => prev.map((item) => (
+                item.id === note.id ? { ...item, ...note } : item
+              )))}
             />
           ) : (
             <SettingsPanel />

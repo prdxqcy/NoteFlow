@@ -13,6 +13,7 @@ export default function TeamPanel({
   managingMemberId,
   onUpdateMemberRole,
   onRemoveMember,
+  onUpdateMemberPermissions,
   canDeleteWorkspace,
   deletingWorkspace,
   onDeleteWorkspace,
@@ -189,7 +190,7 @@ export default function TeamPanel({
                       <p className="truncate text-xs text-zinc-500 dark:text-zinc-500">{member.email}</p>
                     </div>
                     {canManageWorkspace && member.role !== 'owner' ? (
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center justify-end gap-2">
                         <select
                           value={member.role}
                           disabled={managingMemberId === member.id}
@@ -208,6 +209,19 @@ export default function TeamPanel({
                         >
                           Remove
                         </button>
+                        {['edit_notes', 'merge_notes', 'manage_tasks'].map((permission) => (
+                          <label key={permission} className="flex items-center gap-1 text-[10px] text-zinc-500">
+                            <input
+                              type="checkbox"
+                              checked={member.permissions?.[permission] !== false}
+                              onChange={(e) => onUpdateMemberPermissions(member.id, {
+                                ...(member.permissions || {}),
+                                [permission]: e.target.checked,
+                              })}
+                            />
+                            {permission.replace('_', ' ')}
+                          </label>
+                        ))}
                       </div>
                     ) : (
                       <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium capitalize text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">

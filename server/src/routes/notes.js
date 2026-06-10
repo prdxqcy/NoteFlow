@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
+const { recognize } = require('tesseract.js');
 
 router.use(auth);
 
@@ -13,6 +14,16 @@ async function assertMember(workspaceId, userId) {
     [workspaceId, userId]
   );
   return rows.length > 0;
+}
+
+async function assertPermission(workspaceId, userId, permission) {
+  const { rows } = await pool.query(
+    `SELECT wm.role, wm.permissions, w.owner_id FROM workspace_members wm
+     JOIN workspaces w ON w.id=wm.workspace_id WHERE wm.workspace_id=$1 AND wm.user_id=$2`,
+    [workspaceId, userId]
+  );
+  const member = rows[0];
+  return Boolean(member && (member.owner_id === userId || member.role === 'admin' || member.permissions?.[permission] !== false));
 }
 
 async function getNoteWithImages(noteId) {
@@ -28,6 +39,7 @@ async function getNoteWithImages(noteId) {
              'context_title', ni.context_title,
              'context_content', ni.context_content,
              'context_updated_at', ni.context_updated_at,
+             'annotations', COALESCE((SELECT json_agg(json_build_object('id', ia.id, 'x', ia.x, 'y', ia.y, 'kind', ia.kind, 'color', ia.color, 'body', ia.body, 'display_name', au.display_name) ORDER BY ia.created_at) FROM image_annotations ia JOIN users au ON au.id=ia.user_id WHERE ia.image_id=ni.id), '[]'),
              'created_at', ni.created_at
            )
            ORDER BY ni.created_at
@@ -79,6 +91,7 @@ router.get('/workspace/:workspaceId', async (req, res) => {
                'context_title', ni.context_title,
                'context_content', ni.context_content,
                'context_updated_at', ni.context_updated_at,
+               'annotations', COALESCE((SELECT json_agg(json_build_object('id', ia.id, 'x', ia.x, 'y', ia.y, 'kind', ia.kind, 'color', ia.color, 'body', ia.body, 'display_name', au.display_name) ORDER BY ia.created_at) FROM image_annotations ia JOIN users au ON au.id=ia.user_id WHERE ia.image_id=ni.id), '[]'),
                'created_at', ni.created_at
              )
              ORDER BY ni.created_at
@@ -182,6 +195,10 @@ router.post('/:targetId/merge', async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(403).json({ error: 'Access denied' });
     }
+    if (!(await assertPermission(target.workspace_id, req.user.id, 'merge_notes'))) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'You do not have permission to merge notes' });
+    }
 
     const notesByRecency = [source, target].sort(
       (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
@@ -250,6 +267,11 @@ router.post('/:targetId/merge', async (req, res) => {
       [mergedTitle, mergedContent, target.id]
     );
     await client.query('DELETE FROM notes WHERE id = $1', [source.id]);
+    await client.query(
+      `INSERT INTO workspace_activity(workspace_id,user_id,action,entity_type,entity_id,details)
+       VALUES($1,$2,'merged','note',$3,$4)`,
+      [target.workspace_id, req.user.id, target.id, { source_title: source.title, target_title: target.title }]
+    );
     await client.query('COMMIT');
 
     res.json(await getNoteWithImages(target.id));
@@ -270,6 +292,20 @@ router.patch('/:noteId/sections/:sectionId', async (req, res) => {
     if (!note) return res.status(404).json({ error: 'Note not found' });
     if (!(await assertMember(note.workspace_id, req.user.id))) {
       return res.status(403).json({ error: 'Access denied' });
+    }
+    if (!(await assertPermission(note.workspace_id, req.user.id, 'edit_notes'))) {
+      return res.status(403).json({ error: 'You do not have permission to edit notes' });
+    }
+    if (title !== undefined || content !== undefined) {
+      await pool.query(
+        `INSERT INTO note_versions(note_id,title,content,created_by)
+         SELECT id,title,content,$2 FROM notes
+         WHERE id=$1 AND NOT EXISTS(
+           SELECT 1 FROM note_versions WHERE note_id=$1 AND title=notes.title AND content=notes.content
+             AND created_at > NOW() - INTERVAL '30 seconds'
+         )`,
+        [note.id, req.user.id]
+      );
     }
 
     const { rows } = await pool.query(
@@ -302,11 +338,18 @@ router.post('/:id/images', express.raw({ type: 'image/*', limit: '10mb' }), asyn
       return res.status(400).json({ error: 'Image file required' });
     }
 
+    let ocrText = '';
+    try {
+      const result = await recognize(req.body, 'eng');
+      ocrText = result.data?.text?.trim() || '';
+    } catch (ocrError) {
+      console.error('Screenshot OCR failed:', ocrError.message);
+    }
     const { rows: imageRows } = await pool.query(
-      `INSERT INTO note_images (note_id, mime_type, image_data)
-       VALUES ($1, $2, $3)
+      `INSERT INTO note_images (note_id, mime_type, image_data, ocr_text)
+       VALUES ($1, $2, $3, $4)
        RETURNING id, mime_type, created_at`,
-      [note.id, req.headers['content-type'], req.body]
+      [note.id, req.headers['content-type'], req.body, ocrText]
     );
     res.status(201).json(imageRows[0]);
   } catch (err) {
@@ -373,6 +416,11 @@ router.post('/', async (req, res) => {
        )) RETURNING *`,
       [workspace_id, req.user.id, title, content, color || '#ffffff']
     );
+    await pool.query(
+      `INSERT INTO workspace_activity(workspace_id,user_id,action,entity_type,entity_id,details)
+       VALUES($1,$2,'created','note',$3,$4)`,
+      [workspace_id, req.user.id, rows[0].id, { title: rows[0].title }]
+    );
     res.status(201).json(rows[0]);
   } catch (err) {
     console.error(err);
@@ -392,6 +440,20 @@ router.patch('/:id', async (req, res) => {
     if (!note) return res.status(404).json({ error: 'Not found' });
     if (!(await assertMember(note.workspace_id, req.user.id))) {
       return res.status(403).json({ error: 'Access denied' });
+    }
+    if (!(await assertPermission(note.workspace_id, req.user.id, 'edit_notes'))) {
+      return res.status(403).json({ error: 'You do not have permission to edit notes' });
+    }
+    if (title !== undefined || content !== undefined) {
+      await pool.query(
+        `INSERT INTO note_versions(note_id,title,content,created_by)
+         SELECT id,title,content,$2 FROM notes
+         WHERE id=$1 AND NOT EXISTS(
+           SELECT 1 FROM note_versions WHERE note_id=$1 AND title=notes.title AND content=notes.content
+             AND created_at > NOW() - INTERVAL '30 seconds'
+         )`,
+        [note.id, req.user.id]
+      );
     }
     const { rows } = await pool.query(
       `UPDATE notes
@@ -423,6 +485,11 @@ router.delete('/:id', async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
     await pool.query('DELETE FROM notes WHERE id = $1', [req.params.id]);
+    await pool.query(
+      `INSERT INTO workspace_activity(workspace_id,user_id,action,entity_type,entity_id,details)
+       VALUES($1,$2,'deleted','note',$3,$4)`,
+      [note.workspace_id, req.user.id, note.id, { title: note.title }]
+    );
     res.json({ ok: true });
   } catch (err) {
     console.error(err);

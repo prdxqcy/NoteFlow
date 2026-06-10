@@ -5,6 +5,7 @@ const ICON_PATHS = {
   notes: ['M5 4h14v16H5z', 'M8 8h8M8 12h8M8 16h5'],
   meetings: ['M6 3v3M18 3v3M4 8h16', 'M5 5h14a1 1 0 0 1 1 1v13H4V6a1 1 0 0 1 1-1Z'],
   team: ['M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2', 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 20v-2a4 4 0 0 0-3-3.87'],
+  power: ['M13 2 3 14h8l-1 8 11-13h-8z'],
   settings: ['M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z', 'M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06-2.83 2.83-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21h-4v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06-2.83-2.83.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3v-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06 2.83-2.83.06.06A1.65 1.65 0 0 0 8.92 4a1.65 1.65 0 0 0 1-1.51V2h4v.49A1.65 1.65 0 0 0 15 4a1.65 1.65 0 0 0 1.82-.33l.06-.06 2.83 2.83-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21v4h-.09A1.65 1.65 0 0 0 19.4 15Z'],
 };
 
@@ -59,6 +60,7 @@ export default function Sidebar({
     { id: 'notes', label: 'Notes', paths: ICON_PATHS.notes },
     { id: 'meetings', label: 'Meetings', paths: ICON_PATHS.meetings },
     { id: 'team', label: 'Team', paths: ICON_PATHS.team },
+    { id: 'power', label: 'Power tools', paths: ICON_PATHS.power },
     { id: 'settings', label: 'Settings', paths: ICON_PATHS.settings },
   ];
 

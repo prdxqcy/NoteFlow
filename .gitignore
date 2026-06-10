@@ -6,3 +6,4 @@ dist
 client/release/
 *.log
 .DS_Store
+server/*.traineddata

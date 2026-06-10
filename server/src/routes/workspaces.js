@@ -254,7 +254,7 @@ router.get('/:id/members', async (req, res) => {
     if (!access.rows[0]) return res.status(403).json({ error: 'You do not have access to this workspace' });
 
     const { rows } = await pool.query(
-      `SELECT u.id, u.display_name, u.email, u.avatar_url, wm.role
+      `SELECT u.id, u.display_name, u.email, u.avatar_url, wm.role, wm.permissions
        FROM workspace_members wm
        JOIN users u ON u.id = wm.user_id
        WHERE wm.workspace_id = $1`,

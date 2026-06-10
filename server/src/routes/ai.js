@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const auth = require('../middleware/auth');
+const pool = require('../db/pool');
 
 router.use(auth);
 
@@ -127,6 +128,44 @@ router.post('/meeting-agenda', async (req, res) => {
       },
     ]);
     res.json({ agenda });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'AI request failed' });
+  }
+});
+
+router.post('/workspace-insights', async (req, res) => {
+  const { workspace_id, prompt } = req.body;
+  if (!workspace_id || !prompt) return res.status(400).json({ error: 'workspace_id and prompt required' });
+  try {
+    const access = await pool.query('SELECT 1 FROM workspace_members WHERE workspace_id=$1 AND user_id=$2', [workspace_id, req.user.id]);
+    if (!access.rows[0]) return res.status(403).json({ error: 'Access denied' });
+    const { rows } = await pool.query(
+      `SELECT title,content,updated_at FROM notes WHERE workspace_id=$1 AND (NOT is_private OR created_by=$2) ORDER BY updated_at DESC LIMIT 80`,
+      [workspace_id, req.user.id]
+    );
+    const context = rows.map((note) => `# ${note.title}\n${note.content}`).join('\n\n').slice(0, 40000);
+    const answer = await chat([
+      { role: 'system', content: 'Answer using only the supplied workspace notes. Clearly say when the notes do not contain the answer. Also identify related notes and useful next actions.' },
+      { role: 'user', content: `Workspace notes:\n${context}\n\nQuestion: ${prompt}` },
+    ]);
+    res.json({ answer });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'AI request failed' });
+  }
+});
+
+router.post('/extract-tasks', async (req, res) => {
+  const { content } = req.body;
+  if (!content) return res.status(400).json({ error: 'content required' });
+  try {
+    const result = await chat([
+      { role: 'system', content: 'Extract actionable tasks. Return only a JSON array of objects with title, description, priority (low, medium, high).' },
+      { role: 'user', content },
+    ]);
+    const match = result.match(/\[[\s\S]*\]/);
+    res.json({ tasks: JSON.parse(match?.[0] || '[]') });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'AI request failed' });
