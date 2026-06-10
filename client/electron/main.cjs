@@ -72,6 +72,16 @@ function getAppUrl(search = '') {
   return `${pathToFileURL(path.join(appRoot, 'dist', 'index.html')).toString()}${search}`;
 }
 
+function installWindowDiagnostics(window, label) {
+  window.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    console.error(`[${label}] failed to load ${validatedURL}: ${errorCode} ${errorDescription}`);
+  });
+
+  window.webContents.on('render-process-gone', (_event, details) => {
+    console.error(`[${label}] renderer process gone: ${details.reason}`);
+  });
+}
+
 function createMainWindow() {
   const window = new BrowserWindow({
     width: 1280,
@@ -108,6 +118,7 @@ function createMainWindow() {
     shell.openExternal(url);
     return { action: 'deny' };
   });
+  installWindowDiagnostics(window, 'main');
 
   if (rendererUrl) {
     window.loadURL(getAppUrl());
@@ -158,6 +169,7 @@ function createQuickCaptureWindow(type = 'note') {
     shell.openExternal(url);
     return { action: 'deny' };
   });
+  installWindowDiagnostics(window, 'quick-capture');
 
   window.loadURL(getAppUrl(`?quickCapture=${type}`));
   return window;

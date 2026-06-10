@@ -225,6 +225,7 @@ export default function DashboardPage() {
   const [meetings, setMeetings] = useState([]);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [inviting, setInviting] = useState(false);
   const [deletingWorkspace, setDeletingWorkspace] = useState(false);
   const [savingWorkspace, setSavingWorkspace] = useState(false);
@@ -244,6 +245,10 @@ export default function DashboardPage() {
     api.getWorkspaces().then((ws) => {
       setWorkspaces(ws);
       if (ws.length > 0) setActiveWorkspace(ws[0]);
+      else setLoading(false);
+    }).catch((err) => {
+      setLoadError(err.message);
+      setLoading(false);
     });
   }, []);
 
@@ -258,6 +263,10 @@ export default function DashboardPage() {
       setNotes(n);
       setMeetings(m);
       setMembers(workspaceMembers);
+      setLoadError('');
+      setLoading(false);
+    }).catch((err) => {
+      setLoadError(err.message);
       setLoading(false);
     });
   }, [activeWorkspace]);
@@ -535,7 +544,11 @@ export default function DashboardPage() {
         </section>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          {loading ? (
+          {loadError ? (
+            <div className="flex flex-1 items-center justify-center px-4 text-center text-sm text-red-500 dark:text-red-400">
+              {loadError}
+            </div>
+          ) : loading ? (
             <div className="flex flex-1 items-center justify-center px-4 text-zinc-500 dark:text-zinc-600">Loading...</div>
           ) : view === 'notes' ? (
             <NotesList

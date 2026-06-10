@@ -1,4 +1,16 @@
-const BASE = import.meta.env.VITE_API_BASE_URL || '/api';
+const configuredBase = import.meta.env.VITE_API_BASE_URL || '/api';
+const desktopApiOrigin = (
+  import.meta.env.VITE_DESKTOP_API_ORIGIN ||
+  import.meta.env.VITE_API_ORIGIN ||
+  'https://noteflow-noteflow-fyggh3-aefd78-151-245-32-88.sslip.io'
+).replace(/\/$/, '');
+
+const BASE =
+  typeof window !== 'undefined' &&
+  window.location.protocol === 'file:' &&
+  configuredBase.startsWith('/')
+    ? `${desktopApiOrigin}${configuredBase}`
+    : configuredBase;
 
 function getToken() {
   return localStorage.getItem('token');
