@@ -377,8 +377,11 @@ export default function NotesList({
   const [positions, setPositions] = useState({});
   const [movingNoteId, setMovingNoteId] = useState('');
   const [mergeTargetId, setMergeTargetId] = useState('');
+  const [isPanning, setIsPanning] = useState(false);
   const boardRef = useRef(null);
+  const scrollerRef = useRef(null);
   const dragRef = useRef(null);
+  const panRef = useRef(null);
 
   const filteredNotes = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -424,6 +427,13 @@ export default function NotesList({
     if (!desktopMergeEnabled) return undefined;
 
     function handlePointerMove(e) {
+      const pan = panRef.current;
+      if (pan && pan.pointerId === e.pointerId) {
+        scrollerRef.current.scrollLeft = pan.scrollLeft - (e.clientX - pan.startX);
+        scrollerRef.current.scrollTop = pan.scrollTop - (e.clientY - pan.startY);
+        return;
+      }
+
       const drag = dragRef.current;
       if (!drag || drag.pointerId !== e.pointerId) return;
       const position = {
@@ -443,6 +453,13 @@ export default function NotesList({
     }
 
     async function handlePointerUp(e) {
+      const pan = panRef.current;
+      if (pan && pan.pointerId === e.pointerId) {
+        panRef.current = null;
+        setIsPanning(false);
+        return;
+      }
+
       const drag = dragRef.current;
       if (!drag || drag.pointerId !== e.pointerId) return;
       dragRef.current = null;
@@ -463,9 +480,11 @@ export default function NotesList({
 
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
     return () => {
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
     };
   }, [desktopMergeEnabled, notes, onMerge, onUpdate]);
 
@@ -483,6 +502,19 @@ export default function NotesList({
       draft,
     };
     setMovingNoteId(noteId);
+  }
+
+  function handlePanStart(event) {
+    if (!desktopMergeEnabled || event.target !== event.currentTarget) return;
+    event.preventDefault();
+    panRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      scrollLeft: scrollerRef.current.scrollLeft,
+      scrollTop: scrollerRef.current.scrollTop,
+    };
+    setIsPanning(true);
   }
 
   const boardSize = useMemo(() => ({
@@ -510,7 +542,7 @@ export default function NotesList({
           </button>
         </div>
       </header>
-      <div className="flex-1 overflow-auto p-4 sm:p-6">
+      <div ref={scrollerRef} className="flex-1 overflow-auto p-4 sm:p-6">
         {filteredNotes.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-24 text-zinc-600 dark:text-zinc-300">
             {notes.length === 0 ? (
@@ -535,9 +567,12 @@ export default function NotesList({
           <div
             ref={boardRef}
             className={desktopMergeEnabled
-              ? 'relative rounded-2xl bg-[radial-gradient(circle,_rgba(113,113,122,0.16)_1px,_transparent_1px)] [background-size:24px_24px]'
+              ? `relative rounded-2xl bg-[radial-gradient(circle,_rgba(113,113,122,0.16)_1px,_transparent_1px)] [background-size:24px_24px] ${
+                  isPanning ? 'cursor-grabbing' : 'cursor-grab'
+                }`
               : 'grid grid-cols-1 items-start gap-4 md:grid-cols-2'}
             style={desktopMergeEnabled ? { width: boardSize.width, height: boardSize.height } : undefined}
+            onPointerDown={handlePanStart}
           >
             {filteredNotes.map((note) => (
               <div
