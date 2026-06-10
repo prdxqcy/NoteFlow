@@ -94,13 +94,52 @@ async function migrate() {
     `);
 
     await client.query(`
+      ALTER TABLE notes ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;
+    `);
+
+    await client.query(`
+      ALTER TABLE notes ADD COLUMN IF NOT EXISTS position_x INTEGER;
+      ALTER TABLE notes ADD COLUMN IF NOT EXISTS position_y INTEGER;
+    `);
+
+    await client.query(`
+      WITH ranked_notes AS (
+        SELECT id, ROW_NUMBER() OVER (
+          PARTITION BY workspace_id
+          ORDER BY is_pinned DESC, updated_at DESC, created_at DESC
+        ) AS position
+        FROM notes
+      )
+      UPDATE notes
+      SET sort_order = ranked_notes.position
+      FROM ranked_notes
+      WHERE notes.id = ranked_notes.id
+        AND notes.sort_order = 0
+        AND NOT EXISTS (
+          SELECT 1
+          FROM notes ordered_note
+          WHERE ordered_note.workspace_id = notes.workspace_id
+            AND ordered_note.sort_order <> 0
+        );
+    `);
+
+    await client.query(`
       CREATE TABLE IF NOT EXISTS note_images (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         note_id UUID NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
         mime_type TEXT NOT NULL,
         image_data BYTEA NOT NULL,
+        context_title TEXT,
+        context_content TEXT,
+        context_updated_at TIMESTAMPTZ,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
+    `);
+
+    await client.query(`
+      ALTER TABLE note_images ADD COLUMN IF NOT EXISTS context_title TEXT;
+      ALTER TABLE note_images ADD COLUMN IF NOT EXISTS context_content TEXT;
+      ALTER TABLE note_images ADD COLUMN IF NOT EXISTS context_updated_at TIMESTAMPTZ;
     `);
 
     // Workspace email invitations (for users without accounts yet)
@@ -132,7 +171,20 @@ async function migrate() {
     await client.query(`
       CREATE OR REPLACE FUNCTION update_updated_at()
       RETURNS TRIGGER AS $$
-      BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
+      BEGIN
+        IF TG_TABLE_NAME = 'notes'
+          AND NEW.title IS NOT DISTINCT FROM OLD.title
+          AND NEW.content IS NOT DISTINCT FROM OLD.content
+          AND NEW.color IS NOT DISTINCT FROM OLD.color
+          AND NEW.is_pinned IS NOT DISTINCT FROM OLD.is_pinned
+          AND NEW.is_private IS NOT DISTINCT FROM OLD.is_private
+        THEN
+          NEW.updated_at = OLD.updated_at;
+        ELSE
+          NEW.updated_at = NOW();
+        END IF;
+        RETURN NEW;
+      END;
       $$ LANGUAGE plpgsql;
     `);
 

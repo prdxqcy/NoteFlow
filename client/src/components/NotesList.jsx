@@ -11,6 +11,34 @@ const NOTE_COLORS = [
   { value: '#ede9fe', label: 'Violet' },
 ];
 
+const NOTE_WIDTH = 320;
+const NOTE_GAP = 16;
+const NOTE_ROW_HEIGHT = 360;
+
+function findOpenPosition(occupied, boardWidth) {
+  const usableWidth = Math.max(NOTE_WIDTH, boardWidth);
+  const columns = Math.max(1, Math.floor((usableWidth + NOTE_GAP) / (NOTE_WIDTH + NOTE_GAP)));
+  const candidates = [];
+
+  for (let column = 0; column < columns; column += 1) {
+    const x = column * (NOTE_WIDTH + NOTE_GAP);
+    let y = 0;
+    let overlapping;
+    do {
+      overlapping = occupied.find((position) =>
+        x < position.x + (position.width || NOTE_WIDTH) &&
+        x + NOTE_WIDTH > position.x &&
+        y < position.y + (position.height || NOTE_ROW_HEIGHT) &&
+        y + NOTE_ROW_HEIGHT > position.y
+      );
+      if (overlapping) y = overlapping.y + (overlapping.height || NOTE_ROW_HEIGHT) + NOTE_GAP;
+    } while (overlapping);
+    candidates.push({ x, y });
+  }
+
+  return candidates.sort((a, b) => a.y - b.y || a.x - b.x)[0] || { x: 0, y: 0 };
+}
+
 function TrashIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
@@ -18,6 +46,19 @@ function TrashIcon() {
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 7l.7 11.1A2 2 0 0 0 10.2 20h3.6a2 2 0 0 0 2-1.9L16.5 7" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M10 11v5M14 11v5" />
+    </svg>
+  );
+}
+
+function GripIcon() {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+      <circle cx="6" cy="5" r="1.25" />
+      <circle cx="14" cy="5" r="1.25" />
+      <circle cx="6" cy="10" r="1.25" />
+      <circle cx="14" cy="10" r="1.25" />
+      <circle cx="6" cy="15" r="1.25" />
+      <circle cx="14" cy="15" r="1.25" />
     </svg>
   );
 }
@@ -61,15 +102,82 @@ function NoteImage({ image, onDelete }) {
   );
 }
 
-function NoteCard({ note, onUpdate, onDelete, onAddImage, onDeleteImage }) {
+function formatContextDate(value) {
+  if (!value) return '';
+  return new Date(value).toLocaleString([], {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
+
+function ScreenshotGroup({ images, onDeleteImage }) {
+  const context = images[0];
+
+  return (
+    <section className="overflow-hidden rounded-xl border border-black/10 bg-white/55 dark:border-black/10 dark:bg-zinc-50/80">
+      {context.context_title && (
+        <div className="border-b border-black/10 px-3 py-2 dark:border-black/10">
+          <div className="flex flex-wrap items-center justify-between gap-1">
+            <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-800">
+              Screenshots from: {context.context_title}
+            </p>
+            <time className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+              {formatContextDate(context.context_updated_at)}
+            </time>
+          </div>
+          {context.context_content?.trim() && (
+            <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-zinc-600 dark:text-zinc-600">
+              {context.context_content}
+            </p>
+          )}
+        </div>
+      )}
+      <div className="grid gap-2 p-2">
+        {images.map((image) => (
+          <NoteImage key={image.id} image={image} onDelete={() => onDeleteImage(image.id)} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function NoteCard({
+  note,
+  isMoving,
+  isMergeTarget,
+  onMoveStart,
+  onUpdate,
+  onDelete,
+  onAddImage,
+  onDeleteImage,
+}) {
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
-  const [isDragging, setIsDragging] = useState(false);
+  const [isImageDragging, setIsImageDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [imageError, setImageError] = useState('');
   const saveTimer = useRef(null);
   const fileInput = useRef(null);
   const noteColor = note.color || '#ffffff';
+  const imageGroups = useMemo(() => {
+    const groups = new Map();
+    for (const image of note.images || []) {
+      const key = image.context_title
+        ? `${image.context_title}|${image.context_updated_at || ''}|${image.context_content || ''}`
+        : `unmerged:${image.id}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(image);
+    }
+    return [...groups.values()].sort((a, b) => {
+      const first = new Date(a[0].context_updated_at || a[0].created_at).getTime();
+      const second = new Date(b[0].context_updated_at || b[0].created_at).getTime();
+      return second - first;
+    });
+  }, [note.images]);
+
+  useEffect(() => setTitle(note.title), [note.title]);
+  useEffect(() => setContent(note.content), [note.content]);
+  useEffect(() => () => clearTimeout(saveTimer.current), []);
 
   function scheduleUpdate(patch) {
     clearTimeout(saveTimer.current);
@@ -94,36 +202,67 @@ function NoteCard({ note, onUpdate, onDelete, onAddImage, onDeleteImage }) {
     }
   }
 
+  function startMoving(e) {
+    clearTimeout(saveTimer.current);
+    onMoveStart(note.id, e, { title, content });
+  }
+
   return (
     <div
-      className={`group relative flex flex-col gap-2 rounded-2xl border bg-white p-4 shadow-sm transition-all hover:shadow-md dark:bg-zinc-900/90 ${
-        isDragging
+      className={`group relative flex flex-col gap-2 rounded-2xl border bg-white p-4 shadow-sm transition-all hover:shadow-md dark:bg-white dark:shadow-lg dark:shadow-black/45 ${
+        isImageDragging
           ? 'border-blue-500 ring-4 ring-blue-500/20 dark:border-blue-400'
-          : 'border-zinc-200 dark:border-zinc-800'
+          : isMoving
+            ? 'border-amber-500 shadow-xl ring-4 ring-amber-500/20 dark:border-amber-400'
+            : isMergeTarget
+              ? 'border-violet-500 ring-4 ring-violet-500/25 dark:border-violet-400'
+            : 'border-zinc-200 dark:border-zinc-300'
       }`}
       style={{ background: noteColor === '#ffffff' ? undefined : `${noteColor}55` }}
+      onPointerDown={(e) => {
+        if (!e.target.closest('input, textarea, button, a')) startMoving(e);
+      }}
       onDragEnter={(e) => {
         e.preventDefault();
-        setIsDragging(true);
+        setIsImageDragging(true);
       }}
       onDragOver={(e) => e.preventDefault()}
       onDragLeave={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget)) setIsDragging(false);
+        if (!e.currentTarget.contains(e.relatedTarget)) {
+          setIsImageDragging(false);
+        }
       }}
       onDrop={(e) => {
         e.preventDefault();
-        setIsDragging(false);
+        setIsImageDragging(false);
         addImages(e.dataTransfer.files);
       }}
     >
-      {isDragging && (
+      {isImageDragging && (
         <div className="pointer-events-none absolute inset-2 z-10 flex items-center justify-center rounded-xl bg-blue-50/95 text-sm font-semibold text-blue-700 backdrop-blur dark:bg-blue-950/90 dark:text-blue-200">
           Drop screenshots here
         </div>
       )}
-      <div className="flex items-start gap-2">
+      {isMergeTarget && (
+        <div className="pointer-events-none absolute inset-2 z-10 flex items-center justify-center rounded-xl bg-violet-50/90 text-sm font-semibold text-violet-700 backdrop-blur dark:bg-violet-950/90 dark:text-violet-200">
+          Release to merge here
+        </div>
+      )}
+      <div className="flex min-w-0 items-start gap-2">
+        <button
+          type="button"
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            startMoving(e);
+          }}
+          aria-label="Drag note"
+          title="Grab and move note"
+          className="mt-0.5 touch-none cursor-grab rounded p-0.5 text-zinc-400 transition-opacity hover:text-zinc-700 active:cursor-grabbing sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100 dark:text-zinc-400 dark:hover:text-zinc-700"
+        >
+          <GripIcon />
+        </button>
         <input
-          className="flex-1 bg-transparent text-sm font-semibold text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-zinc-100 dark:placeholder:text-zinc-600"
+          className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-zinc-900 dark:placeholder:text-zinc-400"
           value={title}
           placeholder="Untitled"
           onChange={(e) => {
@@ -131,8 +270,9 @@ function NoteCard({ note, onUpdate, onDelete, onAddImage, onDeleteImage }) {
             scheduleUpdate({ title: e.target.value });
           }}
         />
-        <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-          <div className="flex items-center gap-1 rounded-full bg-white/80 px-1.5 py-1 shadow-sm ring-1 ring-zinc-200 backdrop-blur dark:bg-zinc-950/80 dark:ring-zinc-700">
+      </div>
+      <div className="flex w-full flex-wrap items-center justify-end gap-1 overflow-hidden opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+          <div className="flex max-w-full flex-wrap items-center gap-1 rounded-full bg-white/80 px-1.5 py-1 shadow-sm ring-1 ring-zinc-200 backdrop-blur dark:bg-white dark:ring-zinc-300">
             {NOTE_COLORS.map((color) => (
               <button
                 key={color.value}
@@ -149,7 +289,7 @@ function NoteCard({ note, onUpdate, onDelete, onAddImage, onDeleteImage }) {
           <button
             onClick={() => onUpdate(note.id, { is_pinned: !note.is_pinned })}
             title={note.is_pinned ? 'Unpin' : 'Pin'}
-            className="rounded p-1 text-xs text-zinc-500 hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-zinc-200"
+            className="rounded px-1.5 py-1 text-xs text-zinc-500 hover:bg-black/5 hover:text-zinc-900 dark:text-zinc-500 dark:hover:bg-black/5 dark:hover:text-zinc-900"
           >
             {note.is_pinned ? 'Pinned' : 'Pin'}
           </button>
@@ -158,8 +298,8 @@ function NoteCard({ note, onUpdate, onDelete, onAddImage, onDeleteImage }) {
             title={note.is_private ? 'Make visible to workspace' : 'Make private (only you)'}
             className={`rounded p-1 text-xs transition-colors ${
               note.is_private
-                ? 'text-amber-500 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300'
-                : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-zinc-200'
+                ? 'text-amber-500 hover:bg-black/5 hover:text-amber-700 dark:text-amber-400 dark:hover:bg-white/5 dark:hover:text-amber-300'
+                : 'text-zinc-500 hover:bg-black/5 hover:text-zinc-900 dark:text-zinc-500 dark:hover:bg-black/5 dark:hover:text-zinc-900'
             }`}
           >
             {note.is_private ? '🔒' : '🔓'}
@@ -168,14 +308,13 @@ function NoteCard({ note, onUpdate, onDelete, onAddImage, onDeleteImage }) {
             onClick={() => onDelete(note.id)}
             aria-label="Delete note"
             title="Delete note"
-            className="rounded p-1 text-red-500 hover:text-red-600"
+            className="rounded p-1 text-red-500 hover:bg-red-500/10 hover:text-red-600"
           >
             <TrashIcon />
           </button>
-        </div>
       </div>
       <textarea
-        className="min-h-[80px] resize-none bg-transparent text-sm text-zinc-600 outline-none placeholder:text-zinc-400 dark:text-zinc-400 dark:placeholder:text-zinc-700"
+        className="min-h-[80px] resize-none bg-transparent text-sm text-zinc-600 outline-none placeholder:text-zinc-400 dark:text-zinc-700 dark:placeholder:text-zinc-400"
         value={content}
         placeholder="Write something..."
         onChange={(e) => {
@@ -192,11 +331,11 @@ function NoteCard({ note, onUpdate, onDelete, onAddImage, onDeleteImage }) {
       />
       {(note.images || []).length > 0 && (
         <div className="grid gap-2">
-          {(note.images || []).map((image) => (
-            <NoteImage
-              key={image.id}
-              image={image}
-              onDelete={() => onDeleteImage(note.id, image.id)}
+          {imageGroups.map((images) => (
+            <ScreenshotGroup
+              key={`${images[0].context_title || 'screenshot'}:${images[0].id}`}
+              images={images}
+              onDeleteImage={(imageId) => onDeleteImage(note.id, imageId)}
             />
           ))}
         </div>
@@ -214,14 +353,14 @@ function NoteCard({ note, onUpdate, onDelete, onAddImage, onDeleteImage }) {
           type="button"
           onClick={() => fileInput.current?.click()}
           disabled={uploading}
-          className="rounded-lg border border-black/10 bg-white/60 px-2.5 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-white disabled:cursor-wait disabled:opacity-60 dark:border-white/10 dark:bg-zinc-950/30 dark:text-zinc-300 dark:hover:bg-zinc-950/60"
+          className="rounded-lg border border-black/10 bg-white/60 px-2.5 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-white disabled:cursor-wait disabled:opacity-60 dark:border-black/10 dark:bg-zinc-50 dark:text-zinc-700 dark:hover:bg-zinc-100"
         >
           {uploading ? 'Adding screenshot...' : '+ Screenshot'}
         </button>
         <span className="text-[10px] text-zinc-500">Drop or paste images</span>
       </div>
       {imageError && <p className="text-xs text-red-600 dark:text-red-400">{imageError}</p>}
-      <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-600">
+      <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-500">
         <span className="flex items-center gap-1">
           {note.is_private && (
             <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
@@ -236,14 +375,28 @@ function NoteCard({ note, onUpdate, onDelete, onAddImage, onDeleteImage }) {
   );
 }
 
-export default function NotesList({ notes, onCreate, onUpdate, onDelete, onAddImage, onDeleteImage }) {
+export default function NotesList({
+  notes,
+  onCreate,
+  onUpdate,
+  onDelete,
+  onAddImage,
+  onDeleteImage,
+  onMerge,
+}) {
   const [query, setQuery] = useState('');
+  const [positions, setPositions] = useState({});
+  const [movingNoteId, setMovingNoteId] = useState('');
+  const [mergeTargetId, setMergeTargetId] = useState('');
+  const boardRef = useRef(null);
+  const dragRef = useRef(null);
 
   const filteredNotes = useMemo(() => {
     const term = query.trim().toLowerCase();
     return [...notes]
       .sort((a, b) => {
         if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1;
+        if ((a.sort_order ?? 0) !== (b.sort_order ?? 0)) return (a.sort_order ?? 0) - (b.sort_order ?? 0);
         return new Date(b.updated_at) - new Date(a.updated_at);
       })
       .filter((note) => {
@@ -251,6 +404,148 @@ export default function NotesList({ notes, onCreate, onUpdate, onDelete, onAddIm
         return `${note.title} ${note.content} ${note.author_name || ''}`.toLowerCase().includes(term);
       });
   }, [notes, query]);
+
+  useEffect(() => {
+    setPositions((current) => {
+      const next = { ...current };
+      const boardWidth = boardRef.current?.parentElement?.clientWidth || 1100;
+      const occupied = [];
+
+      filteredNotes.forEach((note) => {
+        if (next[note.id]) {
+          if (
+            movingNoteId !== note.id &&
+            Number.isFinite(note.position_x) &&
+            Number.isFinite(note.position_y)
+          ) {
+            next[note.id] = { x: note.position_x, y: note.position_y };
+          }
+        } else if (Number.isFinite(note.position_x) && Number.isFinite(note.position_y)) {
+          next[note.id] = { x: note.position_x, y: note.position_y };
+        }
+        if (next[note.id]) {
+          const element = boardRef.current?.querySelector(`[data-note-id="${note.id}"]`);
+          occupied.push({
+            ...next[note.id],
+            width: element?.offsetWidth || NOTE_WIDTH,
+            height: element?.offsetHeight || NOTE_ROW_HEIGHT,
+          });
+        }
+      });
+
+      filteredNotes.forEach((note) => {
+        if (next[note.id]) return;
+        next[note.id] = findOpenPosition(occupied, boardWidth);
+        occupied.push({ ...next[note.id], width: NOTE_WIDTH, height: NOTE_ROW_HEIGHT });
+      });
+      return next;
+    });
+  }, [filteredNotes, movingNoteId]);
+
+  useEffect(() => {
+    function handlePointerMove(e) {
+      const drag = dragRef.current;
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      const scroller = boardRef.current?.parentElement;
+      if (scroller) {
+        const rect = scroller.getBoundingClientRect();
+        const edge = 56;
+        scroller.scrollBy({
+          left: e.clientX > rect.right - edge ? 18 : e.clientX < rect.left + edge ? -18 : 0,
+          top: e.clientY > rect.bottom - edge ? 18 : e.clientY < rect.top + edge ? -18 : 0,
+          behavior: 'auto',
+        });
+      }
+      const nextPosition = {
+        x: Math.max(0, Math.round(
+          drag.originX + e.clientX - drag.startX + (scroller?.scrollLeft || 0) - drag.startScrollLeft
+        )),
+        y: Math.max(0, Math.round(
+          drag.originY + e.clientY - drag.startY + (scroller?.scrollTop || 0) - drag.startScrollTop
+        )),
+      };
+      drag.position = nextPosition;
+      const mergeTarget = [...boardRef.current.querySelectorAll('[data-note-id]')].find((element) => {
+        if (element.dataset.noteId === drag.id) return false;
+        const rect = element.getBoundingClientRect();
+        return e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+      });
+      drag.mergeTargetId = mergeTarget?.dataset.noteId || '';
+      setMergeTargetId(drag.mergeTargetId);
+      setPositions((current) => ({
+        ...current,
+        [drag.id]: nextPosition,
+      }));
+    }
+
+    async function handlePointerUp(e) {
+      const drag = dragRef.current;
+      if (!drag || e.pointerId !== drag.pointerId) return;
+      dragRef.current = null;
+      setMergeTargetId('');
+
+      const finalPosition = drag.position || { x: drag.originX, y: drag.originY };
+      try {
+        await onUpdate(drag.id, {
+          ...drag.draft,
+          position_x: finalPosition.x,
+          position_y: finalPosition.y,
+        });
+      } finally {
+        setMovingNoteId('');
+      }
+
+      if (e.type === 'pointercancel') return;
+      if (!drag.mergeTargetId) return;
+
+      const source = notes.find((note) => note.id === drag.id);
+      const target = notes.find((note) => note.id === drag.mergeTargetId);
+      if (
+        source &&
+        target &&
+        window.confirm(`Merge "${source.title || 'Untitled'}" into "${target.title || 'Untitled'}"? The moved note will be removed.`)
+      ) {
+        await onMerge(source.id, target.id);
+      }
+    }
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+  }, [notes, onMerge, onUpdate]);
+
+  function handleMoveStart(noteId, event, draft) {
+    if (query.trim()) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    const position = positions[noteId] || { x: 0, y: 0 };
+    const scroller = boardRef.current?.parentElement;
+    dragRef.current = {
+      id: noteId,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: position.x,
+      originY: position.y,
+      startScrollLeft: scroller?.scrollLeft || 0,
+      startScrollTop: scroller?.scrollTop || 0,
+      draft,
+    };
+    setMovingNoteId(noteId);
+  }
+
+  const boardSize = useMemo(() => {
+    const visiblePositions = filteredNotes.map((note) => positions[note.id]).filter(Boolean);
+    return {
+      width: Math.max(1000, ...visiblePositions.map((position) => position.x + 360)),
+      height: Math.max(700, ...visiblePositions.map((position) => position.y + 620)),
+    };
+  }, [filteredNotes, positions]);
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -272,7 +567,7 @@ export default function NotesList({ notes, onCreate, onUpdate, onDelete, onAddIm
           </button>
         </div>
       </header>
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+      <div className="flex-1 overflow-auto p-4 sm:p-6">
         {filteredNotes.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-24 text-zinc-600 dark:text-zinc-300">
             {notes.length === 0 ? (
@@ -294,11 +589,27 @@ export default function NotesList({ notes, onCreate, onUpdate, onDelete, onAddIm
             )}
           </div>
         ) : (
-          <div className="columns-1 gap-4 md:columns-2 xl:columns-3 2xl:columns-4">
+          <div
+            ref={boardRef}
+            className="relative rounded-2xl bg-[radial-gradient(circle,_rgba(113,113,122,0.16)_1px,_transparent_1px)] [background-size:24px_24px]"
+            style={{ width: boardSize.width, height: boardSize.height }}
+          >
             {filteredNotes.map((note) => (
-              <div key={note.id} className="mb-4 break-inside-avoid">
+              <div
+                key={note.id}
+                data-note-id={note.id}
+                className="absolute w-[320px]"
+                style={{
+                  transform: `translate3d(${positions[note.id]?.x || 0}px, ${positions[note.id]?.y || 0}px, 0)`,
+                  zIndex: movingNoteId === note.id ? 20 : note.is_pinned ? 5 : 1,
+                  transition: movingNoteId === note.id ? 'none' : 'transform 180ms ease',
+                }}
+              >
                 <NoteCard
                   note={note}
+                  isMoving={movingNoteId === note.id}
+                  isMergeTarget={mergeTargetId === note.id}
+                  onMoveStart={handleMoveStart}
                   onUpdate={onUpdate}
                   onDelete={onDelete}
                   onAddImage={onAddImage}

@@ -320,6 +320,15 @@ export default function DashboardPage() {
     );
   }, []);
 
+  const handleMergeNotes = useCallback(async (sourceId, targetId) => {
+    const merged = await api.mergeNotes(targetId, sourceId);
+    setNotes((prev) =>
+      prev
+        .filter((note) => note.id !== sourceId)
+        .map((note) => (note.id === targetId ? { ...note, ...merged } : note))
+    );
+  }, []);
+
   const handleCreateMeeting = useCallback(async (data) => {
     if (!activeWorkspace) return;
     if (!data) {
@@ -445,6 +454,7 @@ export default function DashboardPage() {
               onDelete={handleDeleteNote}
               onAddImage={handleAddNoteImage}
               onDeleteImage={handleDeleteNoteImage}
+              onMerge={handleMergeNotes}
             />
           ) : view === 'meetings' ? (
             <MeetingsList

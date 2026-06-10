@@ -53,6 +53,10 @@ export const api = {
   createNote: (body) => request('/notes', { method: 'POST', body }),
   updateNote: (id, body) => request(`/notes/${id}`, { method: 'PATCH', body }),
   deleteNote: (id) => request(`/notes/${id}`, { method: 'DELETE' }),
+  reorderNotes: (workspaceId, note_ids) =>
+    request(`/notes/workspace/${workspaceId}/order`, { method: 'PUT', body: { note_ids } }),
+  mergeNotes: (targetId, source_id) =>
+    request(`/notes/${targetId}/merge`, { method: 'POST', body: { source_id } }),
   uploadNoteImage: (id, file) =>
     imageRequest(`/notes/${id}/images`, {
       method: 'POST',

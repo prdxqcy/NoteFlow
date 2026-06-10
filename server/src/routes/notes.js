@@ -15,6 +15,33 @@ async function assertMember(workspaceId, userId) {
   return rows.length > 0;
 }
 
+async function getNoteWithImages(noteId) {
+  const { rows } = await pool.query(
+    `SELECT n.*, u.display_name AS author_name,
+       COALESCE(
+         json_agg(
+           json_build_object(
+             'id', ni.id,
+             'mime_type', ni.mime_type,
+             'context_title', ni.context_title,
+             'context_content', ni.context_content,
+             'context_updated_at', ni.context_updated_at,
+             'created_at', ni.created_at
+           )
+           ORDER BY ni.created_at
+         ) FILTER (WHERE ni.id IS NOT NULL),
+         '[]'
+       ) AS images
+     FROM notes n
+     JOIN users u ON u.id = n.created_by
+     LEFT JOIN note_images ni ON ni.note_id = n.id
+     WHERE n.id = $1
+     GROUP BY n.id, u.display_name`,
+    [noteId]
+  );
+  return rows[0];
+}
+
 // Get all notes for a workspace
 router.get('/workspace/:workspaceId', async (req, res) => {
   if (!(await assertMember(req.params.workspaceId, req.user.id))) {
@@ -28,6 +55,9 @@ router.get('/workspace/:workspaceId', async (req, res) => {
              json_build_object(
                'id', ni.id,
                'mime_type', ni.mime_type,
+               'context_title', ni.context_title,
+               'context_content', ni.context_content,
+               'context_updated_at', ni.context_updated_at,
                'created_at', ni.created_at
              )
              ORDER BY ni.created_at
@@ -40,13 +70,126 @@ router.get('/workspace/:workspaceId', async (req, res) => {
        WHERE n.workspace_id = $1
          AND (NOT n.is_private OR n.created_by = $2)
        GROUP BY n.id, u.display_name
-       ORDER BY n.is_pinned DESC, n.updated_at DESC`,
+       ORDER BY n.is_pinned DESC, n.sort_order ASC, n.updated_at DESC`,
       [req.params.workspaceId, req.user.id]
     );
     res.json(rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.put('/workspace/:workspaceId/order', async (req, res) => {
+  const { note_ids } = req.body;
+  if (!Array.isArray(note_ids) || note_ids.some((id) => typeof id !== 'string')) {
+    return res.status(400).json({ error: 'note_ids must be an array' });
+  }
+  if (!(await assertMember(req.params.workspaceId, req.user.id))) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const [index, noteId] of note_ids.entries()) {
+      const result = await client.query(
+        'UPDATE notes SET sort_order = $1 WHERE id = $2 AND workspace_id = $3',
+        [index + 1, noteId, req.params.workspaceId]
+      );
+      if (!result.rowCount) throw new Error('Invalid note order');
+    }
+    await client.query('COMMIT');
+    res.json({ ok: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    res.status(400).json({ error: 'Could not save note order' });
+  } finally {
+    client.release();
+  }
+});
+
+router.post('/:targetId/merge', async (req, res) => {
+  const { source_id } = req.body;
+  if (!source_id || source_id === req.params.targetId) {
+    return res.status(400).json({ error: 'Choose two different notes' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      'SELECT * FROM notes WHERE id = ANY($1::uuid[]) FOR UPDATE',
+      [[source_id, req.params.targetId]]
+    );
+    const source = rows.find((note) => note.id === source_id);
+    const target = rows.find((note) => note.id === req.params.targetId);
+    if (!source || !target) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Note not found' });
+    }
+    if (source.workspace_id !== target.workspace_id) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Notes must be in the same workspace' });
+    }
+    if (
+      (source.is_private && source.created_by !== req.user.id) ||
+      (target.is_private && target.created_by !== req.user.id)
+    ) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    if (!(await assertMember(target.workspace_id, req.user.id))) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const notesByRecency = [source, target].sort(
+      (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    );
+    const mergedContent = notesByRecency
+      .map((note, index) => {
+        const label = index === 0 ? 'NEWER NOTE' : 'OLDER NOTE';
+        const timestamp = new Date(note.updated_at).toISOString();
+        return `--- ${label}: ${note.title} (${timestamp}) ---\n${note.content?.trim() || '(No text)'}`;
+      })
+      .join('\n\n');
+    const mergedTitle = notesByRecency[0].title === 'Untitled'
+      ? notesByRecency[1].title
+      : notesByRecency[0].title;
+
+    await client.query(
+      `UPDATE note_images
+       SET context_title = COALESCE(context_title, $1),
+           context_content = COALESCE(context_content, $2),
+           context_updated_at = COALESCE(context_updated_at, $3)
+       WHERE note_id = $4`,
+      [target.title, target.content, target.updated_at, target.id]
+    );
+    await client.query(
+      `UPDATE note_images
+       SET note_id = $1,
+           context_title = COALESCE(context_title, $2),
+           context_content = COALESCE(context_content, $3),
+           context_updated_at = COALESCE(context_updated_at, $4)
+       WHERE note_id = $5`,
+      [target.id, source.title, source.content, source.updated_at, source.id]
+    );
+    await client.query(
+      'UPDATE notes SET title = $1, content = $2 WHERE id = $3',
+      [mergedTitle, mergedContent, target.id]
+    );
+    await client.query('DELETE FROM notes WHERE id = $1', [source.id]);
+    await client.query('COMMIT');
+
+    res.json(await getNoteWithImages(target.id));
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    res.status(500).json({ error: 'Could not merge notes' });
+  } finally {
+    client.release();
   }
 });
 
@@ -130,8 +273,10 @@ router.post('/', async (req, res) => {
   }
   try {
     const { rows } = await pool.query(
-      `INSERT INTO notes (workspace_id, created_by, title, content, color)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      `INSERT INTO notes (workspace_id, created_by, title, content, color, sort_order)
+       VALUES ($1, $2, $3, $4, $5, (
+         SELECT COALESCE(MIN(sort_order), 0) - 1 FROM notes WHERE workspace_id = $1
+       )) RETURNING *`,
       [workspace_id, req.user.id, title, content, color || '#ffffff']
     );
     res.status(201).json(rows[0]);
@@ -143,7 +288,7 @@ router.post('/', async (req, res) => {
 
 // Update a note
 router.patch('/:id', async (req, res) => {
-  const { title, content, color, is_pinned, is_private } = req.body;
+  const { title, content, color, is_pinned, is_private, position_x, position_y } = req.body;
   try {
     const { rows: noteRows } = await pool.query(
       'SELECT * FROM notes WHERE id = $1',
@@ -160,10 +305,12 @@ router.patch('/:id', async (req, res) => {
            content    = COALESCE($2, content),
            color      = COALESCE($3, color),
            is_pinned  = COALESCE($4, is_pinned),
-           is_private = COALESCE($5, is_private)
-       WHERE id = $6
+           is_private = COALESCE($5, is_private),
+           position_x = COALESCE($6, position_x),
+           position_y = COALESCE($7, position_y)
+       WHERE id = $8
        RETURNING *`,
-      [title, content, color, is_pinned, is_private, req.params.id]
+      [title, content, color, is_pinned, is_private, position_x, position_y, req.params.id]
     );
     res.json(rows[0]);
   } catch (err) {
