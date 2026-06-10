@@ -11,34 +11,6 @@ const NOTE_COLORS = [
   { value: '#ede9fe', label: 'Violet' },
 ];
 
-const NOTE_WIDTH = 320;
-const NOTE_GAP = 16;
-const NOTE_ROW_HEIGHT = 360;
-
-function findOpenPosition(occupied, boardWidth) {
-  const usableWidth = Math.max(NOTE_WIDTH, boardWidth);
-  const columns = Math.max(1, Math.floor((usableWidth + NOTE_GAP) / (NOTE_WIDTH + NOTE_GAP)));
-  const candidates = [];
-
-  for (let column = 0; column < columns; column += 1) {
-    const x = column * (NOTE_WIDTH + NOTE_GAP);
-    let y = 0;
-    let overlapping;
-    do {
-      overlapping = occupied.find((position) =>
-        x < position.x + (position.width || NOTE_WIDTH) &&
-        x + NOTE_WIDTH > position.x &&
-        y < position.y + (position.height || NOTE_ROW_HEIGHT) &&
-        y + NOTE_ROW_HEIGHT > position.y
-      );
-      if (overlapping) y = overlapping.y + (overlapping.height || NOTE_ROW_HEIGHT) + NOTE_GAP;
-    } while (overlapping);
-    candidates.push({ x, y });
-  }
-
-  return candidates.sort((a, b) => a.y - b.y || a.x - b.x)[0] || { x: 0, y: 0 };
-}
-
 function TrashIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
@@ -143,9 +115,10 @@ function ScreenshotGroup({ images, onDeleteImage }) {
 
 function NoteCard({
   note,
-  isMoving,
   isMergeTarget,
-  onMoveStart,
+  desktopMergeEnabled,
+  onMergeDragStart,
+  onMergeDragEnd,
   onUpdate,
   onDelete,
   onAddImage,
@@ -202,29 +175,19 @@ function NoteCard({
     }
   }
 
-  function startMoving(e) {
-    clearTimeout(saveTimer.current);
-    onMoveStart(note.id, e, { title, content });
-  }
-
   return (
     <div
       className={`group relative flex flex-col gap-2 rounded-2xl border bg-white p-4 shadow-sm transition-all hover:shadow-md dark:bg-white dark:shadow-lg dark:shadow-black/45 ${
         isImageDragging
           ? 'border-blue-500 ring-4 ring-blue-500/20 dark:border-blue-400'
-          : isMoving
-            ? 'border-amber-500 shadow-xl ring-4 ring-amber-500/20 dark:border-amber-400'
-            : isMergeTarget
-              ? 'border-violet-500 ring-4 ring-violet-500/25 dark:border-violet-400'
+          : isMergeTarget
+            ? 'border-violet-500 ring-4 ring-violet-500/25 dark:border-violet-400'
             : 'border-zinc-200 dark:border-zinc-300'
       }`}
       style={{ background: noteColor === '#ffffff' ? undefined : `${noteColor}55` }}
-      onPointerDown={(e) => {
-        if (!e.target.closest('input, textarea, button, a')) startMoving(e);
-      }}
       onDragEnter={(e) => {
         e.preventDefault();
-        setIsImageDragging(true);
+        if (e.dataTransfer.types.includes('Files')) setIsImageDragging(true);
       }}
       onDragOver={(e) => e.preventDefault()}
       onDragLeave={(e) => {
@@ -235,7 +198,10 @@ function NoteCard({
       onDrop={(e) => {
         e.preventDefault();
         setIsImageDragging(false);
-        addImages(e.dataTransfer.files);
+        if (e.dataTransfer.files.length) {
+          e.stopPropagation();
+          addImages(e.dataTransfer.files);
+        }
       }}
     >
       {isImageDragging && (
@@ -251,13 +217,20 @@ function NoteCard({
       <div className="flex min-w-0 items-start gap-2">
         <button
           type="button"
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            startMoving(e);
+          draggable={desktopMergeEnabled}
+          onDragStart={(e) => {
+            clearTimeout(saveTimer.current);
+            onUpdate(note.id, { title, content });
+            e.dataTransfer.effectAllowed = 'link';
+            e.dataTransfer.setData('application/x-cove-note', note.id);
+            onMergeDragStart(note.id);
           }}
-          aria-label="Drag note"
-          title="Grab and move note"
-          className="mt-0.5 touch-none cursor-grab rounded p-0.5 text-zinc-400 transition-opacity hover:text-zinc-700 active:cursor-grabbing sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100 dark:text-zinc-400 dark:hover:text-zinc-700"
+          onDragEnd={onMergeDragEnd}
+          aria-label="Drag note to merge"
+          title="Drag onto another note to merge"
+          className={`mt-0.5 cursor-grab rounded p-0.5 text-zinc-400 transition-opacity hover:text-zinc-700 active:cursor-grabbing dark:text-zinc-400 dark:hover:text-zinc-700 ${
+            desktopMergeEnabled ? 'hidden lg:block lg:opacity-0 lg:group-hover:opacity-100 lg:focus:opacity-100' : 'hidden'
+          }`}
         >
           <GripIcon />
         </button>
@@ -385,11 +358,9 @@ export default function NotesList({
   onMerge,
 }) {
   const [query, setQuery] = useState('');
-  const [positions, setPositions] = useState({});
-  const [movingNoteId, setMovingNoteId] = useState('');
+  const [desktopMergeEnabled, setDesktopMergeEnabled] = useState(false);
+  const [draggedNoteId, setDraggedNoteId] = useState('');
   const [mergeTargetId, setMergeTargetId] = useState('');
-  const boardRef = useRef(null);
-  const dragRef = useRef(null);
 
   const filteredNotes = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -406,146 +377,27 @@ export default function NotesList({
   }, [notes, query]);
 
   useEffect(() => {
-    setPositions((current) => {
-      const next = { ...current };
-      const boardWidth = boardRef.current?.parentElement?.clientWidth || 1100;
-      const occupied = [];
-
-      filteredNotes.forEach((note) => {
-        if (next[note.id]) {
-          if (
-            movingNoteId !== note.id &&
-            Number.isFinite(note.position_x) &&
-            Number.isFinite(note.position_y)
-          ) {
-            next[note.id] = { x: note.position_x, y: note.position_y };
-          }
-        } else if (Number.isFinite(note.position_x) && Number.isFinite(note.position_y)) {
-          next[note.id] = { x: note.position_x, y: note.position_y };
-        }
-        if (next[note.id]) {
-          const element = boardRef.current?.querySelector(`[data-note-id="${note.id}"]`);
-          occupied.push({
-            ...next[note.id],
-            width: element?.offsetWidth || NOTE_WIDTH,
-            height: element?.offsetHeight || NOTE_ROW_HEIGHT,
-          });
-        }
-      });
-
-      filteredNotes.forEach((note) => {
-        if (next[note.id]) return;
-        next[note.id] = findOpenPosition(occupied, boardWidth);
-        occupied.push({ ...next[note.id], width: NOTE_WIDTH, height: NOTE_ROW_HEIGHT });
-      });
-      return next;
-    });
-  }, [filteredNotes, movingNoteId]);
-
-  useEffect(() => {
-    function handlePointerMove(e) {
-      const drag = dragRef.current;
-      if (!drag || e.pointerId !== drag.pointerId) return;
-      const scroller = boardRef.current?.parentElement;
-      if (scroller) {
-        const rect = scroller.getBoundingClientRect();
-        const edge = 56;
-        scroller.scrollBy({
-          left: e.clientX > rect.right - edge ? 18 : e.clientX < rect.left + edge ? -18 : 0,
-          top: e.clientY > rect.bottom - edge ? 18 : e.clientY < rect.top + edge ? -18 : 0,
-          behavior: 'auto',
-        });
-      }
-      const nextPosition = {
-        x: Math.max(0, Math.round(
-          drag.originX + e.clientX - drag.startX + (scroller?.scrollLeft || 0) - drag.startScrollLeft
-        )),
-        y: Math.max(0, Math.round(
-          drag.originY + e.clientY - drag.startY + (scroller?.scrollTop || 0) - drag.startScrollTop
-        )),
-      };
-      drag.position = nextPosition;
-      const mergeTarget = [...boardRef.current.querySelectorAll('[data-note-id]')].find((element) => {
-        if (element.dataset.noteId === drag.id) return false;
-        const rect = element.getBoundingClientRect();
-        return e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
-      });
-      drag.mergeTargetId = mergeTarget?.dataset.noteId || '';
-      setMergeTargetId(drag.mergeTargetId);
-      setPositions((current) => ({
-        ...current,
-        [drag.id]: nextPosition,
-      }));
-    }
-
-    async function handlePointerUp(e) {
-      const drag = dragRef.current;
-      if (!drag || e.pointerId !== drag.pointerId) return;
-      dragRef.current = null;
-      setMergeTargetId('');
-
-      const finalPosition = drag.position || { x: drag.originX, y: drag.originY };
-      try {
-        await onUpdate(drag.id, {
-          ...drag.draft,
-          position_x: finalPosition.x,
-          position_y: finalPosition.y,
-        });
-      } finally {
-        setMovingNoteId('');
-      }
-
-      if (e.type === 'pointercancel') return;
-      if (!drag.mergeTargetId) return;
-
-      const source = notes.find((note) => note.id === drag.id);
-      const target = notes.find((note) => note.id === drag.mergeTargetId);
-      if (
-        source &&
-        target &&
-        window.confirm(`Merge "${source.title || 'Untitled'}" into "${target.title || 'Untitled'}"? The moved note will be removed.`)
-      ) {
-        await onMerge(source.id, target.id);
-      }
-    }
-
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp);
-    window.addEventListener('pointercancel', handlePointerUp);
+    const media = window.matchMedia('(min-width: 1024px)');
+    const update = () => setDesktopMergeEnabled(media.matches);
+    update();
+    media.addEventListener('change', update);
     return () => {
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-      window.removeEventListener('pointercancel', handlePointerUp);
+      media.removeEventListener('change', update);
     };
-  }, [notes, onMerge, onUpdate]);
+  }, []);
 
-  function handleMoveStart(noteId, event, draft) {
-    if (query.trim()) return;
-    event.preventDefault();
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    const position = positions[noteId] || { x: 0, y: 0 };
-    const scroller = boardRef.current?.parentElement;
-    dragRef.current = {
-      id: noteId,
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      originX: position.x,
-      originY: position.y,
-      startScrollLeft: scroller?.scrollLeft || 0,
-      startScrollTop: scroller?.scrollTop || 0,
-      draft,
-    };
-    setMovingNoteId(noteId);
+  async function handleMergeDrop(target) {
+    const source = notes.find((note) => note.id === draggedNoteId);
+    setDraggedNoteId('');
+    setMergeTargetId('');
+    if (
+      source &&
+      source.id !== target.id &&
+      window.confirm(`Merge "${source.title || 'Untitled'}" into "${target.title || 'Untitled'}"? The dragged note will be removed.`)
+    ) {
+      await onMerge(source.id, target.id);
+    }
   }
-
-  const boardSize = useMemo(() => {
-    const visiblePositions = filteredNotes.map((note) => positions[note.id]).filter(Boolean);
-    return {
-      width: Math.max(1000, ...visiblePositions.map((position) => position.x + 360)),
-      height: Math.max(700, ...visiblePositions.map((position) => position.y + 620)),
-    };
-  }, [filteredNotes, positions]);
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -567,7 +419,7 @@ export default function NotesList({
           </button>
         </div>
       </header>
-      <div className="flex-1 overflow-auto p-4 sm:p-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         {filteredNotes.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-24 text-zinc-600 dark:text-zinc-300">
             {notes.length === 0 ? (
@@ -589,27 +441,34 @@ export default function NotesList({
             )}
           </div>
         ) : (
-          <div
-            ref={boardRef}
-            className="relative rounded-2xl bg-[radial-gradient(circle,_rgba(113,113,122,0.16)_1px,_transparent_1px)] [background-size:24px_24px]"
-            style={{ width: boardSize.width, height: boardSize.height }}
-          >
+          <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {filteredNotes.map((note) => (
               <div
                 key={note.id}
-                data-note-id={note.id}
-                className="absolute w-[320px]"
-                style={{
-                  transform: `translate3d(${positions[note.id]?.x || 0}px, ${positions[note.id]?.y || 0}px, 0)`,
-                  zIndex: movingNoteId === note.id ? 20 : note.is_pinned ? 5 : 1,
-                  transition: movingNoteId === note.id ? 'none' : 'transform 180ms ease',
+                onDragOver={(e) => {
+                  if (!desktopMergeEnabled || !draggedNoteId || draggedNoteId === note.id) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'link';
+                  setMergeTargetId(note.id);
+                }}
+                onDragLeave={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget)) setMergeTargetId('');
+                }}
+                onDrop={(e) => {
+                  if (!desktopMergeEnabled || !draggedNoteId || draggedNoteId === note.id) return;
+                  e.preventDefault();
+                  handleMergeDrop(note);
                 }}
               >
                 <NoteCard
                   note={note}
-                  isMoving={movingNoteId === note.id}
                   isMergeTarget={mergeTargetId === note.id}
-                  onMoveStart={handleMoveStart}
+                  desktopMergeEnabled={desktopMergeEnabled && !query.trim()}
+                  onMergeDragStart={setDraggedNoteId}
+                  onMergeDragEnd={() => {
+                    setDraggedNoteId('');
+                    setMergeTargetId('');
+                  }}
                   onUpdate={onUpdate}
                   onDelete={onDelete}
                   onAddImage={onAddImage}
