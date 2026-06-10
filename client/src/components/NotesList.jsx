@@ -22,6 +22,19 @@ function findOpenDesktopPosition(occupied) {
   return { x: 0, y: occupied.length * 360 };
 }
 
+const DEFAULT_NOTE_SIZE = { width: 320, height: 360 };
+const MIN_NOTE_SIZE = { width: 260, height: 180 };
+const MAX_NOTE_SIZE = { width: 760, height: 900 };
+
+function getNoteSize(note) {
+  const width = Number.isFinite(note.note_width) ? note.note_width : DEFAULT_NOTE_SIZE.width;
+  const height = Number.isFinite(note.note_height) ? note.note_height : DEFAULT_NOTE_SIZE.height;
+  return {
+    width: Math.min(MAX_NOTE_SIZE.width, Math.max(MIN_NOTE_SIZE.width, width)),
+    height: Math.min(MAX_NOTE_SIZE.height, Math.max(MIN_NOTE_SIZE.height, height)),
+  };
+}
+
 function TrashIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
@@ -214,6 +227,7 @@ function NoteCard({
   onDeleteImage,
   onAddAnnotation,
   onDeleteAnnotation,
+  onResizeStart,
 }) {
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
@@ -278,7 +292,7 @@ function NoteCard({
             : isMergeTarget
               ? 'border-violet-500 ring-4 ring-violet-500/25 dark:border-violet-400'
             : 'border-zinc-200 dark:border-zinc-300'
-      }`}
+      } ${desktopMergeEnabled ? 'h-full overflow-auto' : ''}`}
       style={{ background: noteColor === '#ffffff' ? undefined : `${noteColor}55` }}
       onPointerDown={(e) => {
         if (desktopMergeEnabled && !e.target.closest('input, textarea, button, a')) {
@@ -460,6 +474,31 @@ function NoteCard({
         </span>
         <span>{new Date(note.updated_at).toLocaleDateString()}</span>
       </div>
+      {desktopMergeEnabled && (
+        <>
+          <button
+            type="button"
+            aria-label="Resize note horizontally"
+            title="Resize note horizontally"
+            onPointerDown={(e) => onResizeStart(note.id, e, 'x')}
+            className="absolute bottom-8 right-0 hidden h-12 w-2 cursor-ew-resize touch-none rounded-l bg-zinc-400/0 transition-colors hover:bg-zinc-400/35 lg:block"
+          />
+          <button
+            type="button"
+            aria-label="Resize note vertically"
+            title="Resize note vertically"
+            onPointerDown={(e) => onResizeStart(note.id, e, 'y')}
+            className="absolute bottom-0 right-8 hidden h-2 w-12 cursor-ns-resize touch-none rounded-t bg-zinc-400/0 transition-colors hover:bg-zinc-400/35 lg:block"
+          />
+          <button
+            type="button"
+            aria-label="Resize note"
+            title="Resize note"
+            onPointerDown={(e) => onResizeStart(note.id, e, 'xy')}
+            className="absolute bottom-1.5 right-1.5 hidden h-4 w-4 cursor-nwse-resize touch-none rounded-sm border-b-2 border-r-2 border-zinc-400/75 opacity-0 transition-opacity hover:border-zinc-600 group-hover:opacity-100 focus:opacity-100 lg:block"
+          />
+        </>
+      )}
     </div>
   );
 }
@@ -479,12 +518,15 @@ export default function NotesList({
   const [query, setQuery] = useState('');
   const [desktopMergeEnabled, setDesktopMergeEnabled] = useState(false);
   const [positions, setPositions] = useState({});
+  const [sizes, setSizes] = useState({});
   const [movingNoteId, setMovingNoteId] = useState('');
+  const [resizingNoteId, setResizingNoteId] = useState('');
   const [mergeTargetId, setMergeTargetId] = useState('');
   const [isPanning, setIsPanning] = useState(false);
   const boardRef = useRef(null);
   const scrollerRef = useRef(null);
   const dragRef = useRef(null);
+  const resizeRef = useRef(null);
   const panRef = useRef(null);
 
   const filteredNotes = useMemo(() => {
@@ -525,7 +567,21 @@ export default function NotesList({
       });
       return next;
     });
-  }, [desktopMergeEnabled, filteredNotes]);
+    setSizes((current) => {
+      const next = { ...current };
+      filteredNotes.forEach((note) => {
+        const noteSize = getNoteSize(note);
+        if (
+          !next[note.id] ||
+          (resizingNoteId !== note.id && Number.isFinite(note.note_width) && Number.isFinite(note.note_height) &&
+            (next[note.id].width !== noteSize.width || next[note.id].height !== noteSize.height))
+        ) {
+          next[note.id] = noteSize;
+        }
+      });
+      return next;
+    });
+  }, [desktopMergeEnabled, filteredNotes, resizingNoteId]);
 
   useEffect(() => {
     if (!desktopMergeEnabled) return undefined;
@@ -539,6 +595,21 @@ export default function NotesList({
       }
 
       const drag = dragRef.current;
+      const resize = resizeRef.current;
+      if (resize && resize.pointerId === e.pointerId) {
+        const nextSize = {
+          width: resize.direction.includes('x')
+            ? Math.min(MAX_NOTE_SIZE.width, Math.max(MIN_NOTE_SIZE.width, Math.round(resize.originWidth + e.clientX - resize.startX)))
+            : resize.originWidth,
+          height: resize.direction.includes('y')
+            ? Math.min(MAX_NOTE_SIZE.height, Math.max(MIN_NOTE_SIZE.height, Math.round(resize.originHeight + e.clientY - resize.startY)))
+            : resize.originHeight,
+        };
+        resize.size = nextSize;
+        setSizes((current) => ({ ...current, [resize.id]: nextSize }));
+        return;
+      }
+
       if (!drag || drag.pointerId !== e.pointerId) return;
       const position = {
         x: Math.max(0, Math.round(drag.originX + e.clientX - drag.startX)),
@@ -565,6 +636,15 @@ export default function NotesList({
       }
 
       const drag = dragRef.current;
+      const resize = resizeRef.current;
+      if (resize && resize.pointerId === e.pointerId) {
+        resizeRef.current = null;
+        setResizingNoteId('');
+        const size = resize.size || { width: resize.originWidth, height: resize.originHeight };
+        await onUpdate(resize.id, { note_width: size.width, note_height: size.height });
+        return;
+      }
+
       if (!drag || drag.pointerId !== e.pointerId) return;
       dragRef.current = null;
       setMovingNoteId('');
@@ -608,6 +688,23 @@ export default function NotesList({
     setMovingNoteId(noteId);
   }
 
+  function handleResizeStart(noteId, event, direction) {
+    if (!desktopMergeEnabled || query.trim()) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const size = sizes[noteId] || getNoteSize(notes.find((note) => note.id === noteId) || {});
+    resizeRef.current = {
+      id: noteId,
+      pointerId: event.pointerId,
+      direction,
+      startX: event.clientX,
+      startY: event.clientY,
+      originWidth: size.width,
+      originHeight: size.height,
+    };
+    setResizingNoteId(noteId);
+  }
+
   function handlePanStart(event) {
     if (!desktopMergeEnabled || event.target !== event.currentTarget) return;
     event.preventDefault();
@@ -622,9 +719,9 @@ export default function NotesList({
   }
 
   const boardSize = useMemo(() => ({
-    width: Math.max(1100, ...filteredNotes.map((note) => (positions[note.id]?.x || 0) + 360)),
-    height: Math.max(700, ...filteredNotes.map((note) => (positions[note.id]?.y || 0) + 620)),
-  }), [filteredNotes, positions]);
+    width: Math.max(1100, ...filteredNotes.map((note) => (positions[note.id]?.x || 0) + (sizes[note.id]?.width || DEFAULT_NOTE_SIZE.width) + 40)),
+    height: Math.max(700, ...filteredNotes.map((note) => (positions[note.id]?.y || 0) + (sizes[note.id]?.height || DEFAULT_NOTE_SIZE.height) + 120)),
+  }), [filteredNotes, positions, sizes]);
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -682,10 +779,12 @@ export default function NotesList({
               <div
                 key={note.id}
                 data-note-id={note.id}
-                className={desktopMergeEnabled ? 'absolute w-[320px]' : ''}
+                className={desktopMergeEnabled ? 'absolute' : ''}
                 style={desktopMergeEnabled ? {
+                  width: sizes[note.id]?.width || DEFAULT_NOTE_SIZE.width,
+                  height: sizes[note.id]?.height || DEFAULT_NOTE_SIZE.height,
                   transform: `translate3d(${positions[note.id]?.x || 0}px, ${positions[note.id]?.y || 0}px, 0)`,
-                  zIndex: movingNoteId === note.id ? 20 : note.is_pinned ? 5 : 1,
+                  zIndex: movingNoteId === note.id || resizingNoteId === note.id ? 20 : note.is_pinned ? 5 : 1,
                 } : undefined}
               >
                 <NoteCard
@@ -694,6 +793,7 @@ export default function NotesList({
                   isMergeTarget={mergeTargetId === note.id}
                   desktopMergeEnabled={desktopMergeEnabled && !query.trim()}
                   onMoveStart={handleMoveStart}
+                  onResizeStart={handleResizeStart}
                   onUpdate={onUpdate}
                   onUpdateSection={onUpdateSection}
                   onDelete={onDelete}

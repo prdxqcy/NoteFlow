@@ -430,7 +430,7 @@ router.post('/', async (req, res) => {
 
 // Update a note
 router.patch('/:id', async (req, res) => {
-  const { title, content, color, is_pinned, is_private, position_x, position_y } = req.body;
+  const { title, content, color, is_pinned, is_private, position_x, position_y, note_width, note_height } = req.body;
   try {
     const { rows: noteRows } = await pool.query(
       'SELECT * FROM notes WHERE id = $1',
@@ -463,10 +463,12 @@ router.patch('/:id', async (req, res) => {
            is_pinned  = COALESCE($4, is_pinned),
            is_private = COALESCE($5, is_private),
            position_x = COALESCE($6, position_x),
-           position_y = COALESCE($7, position_y)
-       WHERE id = $8
+           position_y = COALESCE($7, position_y),
+           note_width = COALESCE($8, note_width),
+           note_height = COALESCE($9, note_height)
+       WHERE id = $10
        RETURNING *`,
-      [title, content, color, is_pinned, is_private, position_x, position_y, req.params.id]
+      [title, content, color, is_pinned, is_private, position_x, position_y, note_width, note_height, req.params.id]
     );
     res.json(rows[0]);
   } catch (err) {

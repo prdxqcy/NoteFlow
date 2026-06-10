@@ -106,6 +106,8 @@ async function migrate() {
     await client.query(`
       ALTER TABLE notes ADD COLUMN IF NOT EXISTS position_x INTEGER;
       ALTER TABLE notes ADD COLUMN IF NOT EXISTS position_y INTEGER;
+      ALTER TABLE notes ADD COLUMN IF NOT EXISTS note_width INTEGER;
+      ALTER TABLE notes ADD COLUMN IF NOT EXISTS note_height INTEGER;
     `);
 
     await client.query(`
@@ -303,6 +305,10 @@ async function migrate() {
           AND NEW.color IS NOT DISTINCT FROM OLD.color
           AND NEW.is_pinned IS NOT DISTINCT FROM OLD.is_pinned
           AND NEW.is_private IS NOT DISTINCT FROM OLD.is_private
+          AND NEW.position_x IS NOT DISTINCT FROM OLD.position_x
+          AND NEW.position_y IS NOT DISTINCT FROM OLD.position_y
+          AND NEW.note_width IS NOT DISTINCT FROM OLD.note_width
+          AND NEW.note_height IS NOT DISTINCT FROM OLD.note_height
         THEN
           NEW.updated_at = OLD.updated_at;
         ELSE
