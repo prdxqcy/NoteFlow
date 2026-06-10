@@ -399,7 +399,9 @@ function NoteCard({
       </div>
       {sections.length === 0 && (
         <textarea
-          className="min-h-[80px] resize-none bg-transparent text-sm text-zinc-600 outline-none placeholder:text-zinc-400 dark:text-zinc-700 dark:placeholder:text-zinc-400"
+          className={`min-h-[80px] resize-none bg-transparent text-sm text-zinc-600 outline-none placeholder:text-zinc-400 dark:text-zinc-700 dark:placeholder:text-zinc-400 ${
+            desktopMergeEnabled ? 'flex-1' : ''
+          }`}
           value={content}
           placeholder="Write something..."
           onChange={(e) => {
