@@ -262,7 +262,7 @@ export default function DashboardPage() {
     socket.emit('join:workspace', activeWorkspace.id);
 
     socket.on('note:updated', (note) =>
-      setNotes((prev) => prev.map((n) => (n.id === note.id ? note : n)))
+      setNotes((prev) => prev.map((n) => (n.id === note.id ? { ...n, ...note } : n)))
     );
     socket.on('meeting:updated', (meeting) =>
       setMeetings((prev) => prev.map((m) => (m.id === meeting.id ? meeting : m)))
@@ -290,7 +290,7 @@ export default function DashboardPage() {
 
   const handleUpdateNote = useCallback(async (id, patch) => {
     const updated = await api.updateNote(id, patch);
-    setNotes((prev) => prev.map((n) => (n.id === id ? updated : n)));
+    setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, ...updated } : n)));
     const socket = getSocket();
     socket.emit('note:update', { workspaceId: activeWorkspace.id, note: updated });
   }, [activeWorkspace]);
@@ -298,6 +298,26 @@ export default function DashboardPage() {
   const handleDeleteNote = useCallback(async (id) => {
     await api.deleteNote(id);
     setNotes((prev) => prev.filter((n) => n.id !== id));
+  }, []);
+
+  const handleAddNoteImage = useCallback(async (noteId, file) => {
+    const image = await api.uploadNoteImage(noteId, file);
+    setNotes((prev) =>
+      prev.map((note) =>
+        note.id === noteId ? { ...note, images: [...(note.images || []), image] } : note
+      )
+    );
+  }, []);
+
+  const handleDeleteNoteImage = useCallback(async (noteId, imageId) => {
+    await api.deleteNoteImage(noteId, imageId);
+    setNotes((prev) =>
+      prev.map((note) =>
+        note.id === noteId
+          ? { ...note, images: (note.images || []).filter((image) => image.id !== imageId) }
+          : note
+      )
+    );
   }, []);
 
   const handleCreateMeeting = useCallback(async (data) => {
@@ -423,6 +443,8 @@ export default function DashboardPage() {
               onCreate={handleCreateNote}
               onUpdate={handleUpdateNote}
               onDelete={handleDeleteNote}
+              onAddImage={handleAddNoteImage}
+              onDeleteImage={handleDeleteNoteImage}
             />
           ) : view === 'meetings' ? (
             <MeetingsList

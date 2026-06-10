@@ -93,6 +93,16 @@ async function migrate() {
       ALTER TABLE notes ADD COLUMN IF NOT EXISTS is_private BOOLEAN DEFAULT false;
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS note_images (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        note_id UUID NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+        mime_type TEXT NOT NULL,
+        image_data BYTEA NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
     // Workspace email invitations (for users without accounts yet)
     await client.query(`
       CREATE TABLE IF NOT EXISTS invitations (

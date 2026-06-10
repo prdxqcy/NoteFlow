@@ -19,6 +19,21 @@ async function request(path, options = {}) {
   return data;
 }
 
+async function imageRequest(path, options = {}) {
+  const res = await fetch(`${BASE}${path}`, {
+    ...options,
+    headers: {
+      ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+      ...options.headers,
+    },
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Image request failed');
+  }
+  return options.method === 'DELETE' ? res.json() : res.blob();
+}
+
 export const api = {
   // auth
   register: (body) => request('/auth/register', { method: 'POST', body }),
@@ -38,6 +53,15 @@ export const api = {
   createNote: (body) => request('/notes', { method: 'POST', body }),
   updateNote: (id, body) => request(`/notes/${id}`, { method: 'PATCH', body }),
   deleteNote: (id) => request(`/notes/${id}`, { method: 'DELETE' }),
+  uploadNoteImage: (id, file) =>
+    imageRequest(`/notes/${id}/images`, {
+      method: 'POST',
+      headers: { 'Content-Type': file.type },
+      body: file,
+    }).then(async (blob) => JSON.parse(await blob.text())),
+  getNoteImage: (id) => imageRequest(`/notes/images/${id}`),
+  deleteNoteImage: (noteId, imageId) =>
+    imageRequest(`/notes/${noteId}/images/${imageId}`, { method: 'DELETE' }),
 
   // meetings
   getMeetings: (workspaceId) => request(`/meetings/workspace/${workspaceId}`),

@@ -1,8 +1,11 @@
-const router = require('express').Router();
+const express = require('express');
+const router = express.Router();
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 
 router.use(auth);
+
+const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
 
 async function assertMember(workspaceId, userId) {
   const { rows } = await pool.query(
@@ -19,15 +22,99 @@ router.get('/workspace/:workspaceId', async (req, res) => {
   }
   try {
     const { rows } = await pool.query(
-      `SELECT n.*, u.display_name AS author_name
+      `SELECT n.*, u.display_name AS author_name,
+         COALESCE(
+           json_agg(
+             json_build_object(
+               'id', ni.id,
+               'mime_type', ni.mime_type,
+               'created_at', ni.created_at
+             )
+             ORDER BY ni.created_at
+           ) FILTER (WHERE ni.id IS NOT NULL),
+           '[]'
+         ) AS images
        FROM notes n
        JOIN users u ON u.id = n.created_by
+       LEFT JOIN note_images ni ON ni.note_id = n.id
        WHERE n.workspace_id = $1
          AND (NOT n.is_private OR n.created_by = $2)
+       GROUP BY n.id, u.display_name
        ORDER BY n.is_pinned DESC, n.updated_at DESC`,
       [req.params.workspaceId, req.user.id]
     );
     res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/:id/images', express.raw({ type: 'image/*', limit: '10mb' }), async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM notes WHERE id = $1', [req.params.id]);
+    const note = rows[0];
+    if (!note) return res.status(404).json({ error: 'Note not found' });
+    if (!(await assertMember(note.workspace_id, req.user.id))) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    if (!IMAGE_TYPES.has(req.headers['content-type'])) {
+      return res.status(415).json({ error: 'Use a PNG, JPEG, GIF, or WebP image' });
+    }
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+      return res.status(400).json({ error: 'Image file required' });
+    }
+
+    const { rows: imageRows } = await pool.query(
+      `INSERT INTO note_images (note_id, mime_type, image_data)
+       VALUES ($1, $2, $3)
+       RETURNING id, mime_type, created_at`,
+      [note.id, req.headers['content-type'], req.body]
+    );
+    res.status(201).json(imageRows[0]);
+  } catch (err) {
+    if (err.type === 'entity.too.large') {
+      return res.status(413).json({ error: 'Images must be smaller than 10 MB' });
+    }
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.get('/images/:imageId', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT ni.mime_type, ni.image_data
+       FROM note_images ni
+       JOIN notes n ON n.id = ni.note_id
+       JOIN workspace_members wm ON wm.workspace_id = n.workspace_id
+       WHERE ni.id = $1
+         AND wm.user_id = $2
+         AND (NOT n.is_private OR n.created_by = $2)`,
+      [req.params.imageId, req.user.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Image not found' });
+    res.type(rows[0].mime_type).send(rows[0].image_data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.delete('/:noteId/images/:imageId', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM notes WHERE id = $1', [req.params.noteId]);
+    const note = rows[0];
+    if (!note) return res.status(404).json({ error: 'Note not found' });
+    if (!(await assertMember(note.workspace_id, req.user.id))) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    const result = await pool.query(
+      'DELETE FROM note_images WHERE id = $1 AND note_id = $2',
+      [req.params.imageId, note.id]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: 'Image not found' });
+    res.json({ ok: true });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
