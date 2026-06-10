@@ -225,13 +225,17 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [inviting, setInviting] = useState(false);
   const [deletingWorkspace, setDeletingWorkspace] = useState(false);
+  const [savingWorkspace, setSavingWorkspace] = useState(false);
+  const [managingMemberId, setManagingMemberId] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showMeetingComposer, setShowMeetingComposer] = useState(0);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const upcomingMeetings = meetings.filter((meeting) => new Date(meeting.start_time) >= new Date()).length;
   const pinnedNotes = notes.filter((note) => note.is_pinned).length;
-  const canInvite = activeWorkspace && user && activeWorkspace.owner_id === user.id;
+  const canManageWorkspace = activeWorkspace && user
+    && (activeWorkspace.owner_id === user.id || activeWorkspace.membership_role === 'admin');
+  const canInvite = canManageWorkspace;
   const canDeleteWorkspace = activeWorkspace && user && activeWorkspace.owner_id === user.id && !activeWorkspace.is_solo;
 
   useEffect(() => {
@@ -300,6 +304,20 @@ export default function DashboardPage() {
     setNotes((prev) => prev.filter((n) => n.id !== id));
   }, []);
 
+  const handleUpdateNoteSection = useCallback(async (noteId, sectionId, patch) => {
+    const updated = await api.updateNoteSection(noteId, sectionId, patch);
+    setNotes((prev) => prev.map((note) => (
+      note.id === noteId
+        ? {
+            ...note,
+            sections: (note.sections || []).map((section) => (
+              section.id === sectionId ? { ...section, ...updated } : section
+            )),
+          }
+        : note
+    )));
+  }, []);
+
   const handleAddNoteImage = useCallback(async (noteId, file) => {
     const image = await api.uploadNoteImage(noteId, file);
     setNotes((prev) =>
@@ -355,6 +373,45 @@ export default function DashboardPage() {
       return result;
     } finally {
       setInviting(false);
+    }
+  }, [activeWorkspace]);
+
+  const handleUpdateWorkspace = useCallback(async (changes) => {
+    if (!activeWorkspace) return;
+    setSavingWorkspace(true);
+    try {
+      const updated = await api.updateWorkspace(activeWorkspace.id, changes);
+      setWorkspaces((prev) => prev.map((workspace) => (
+        workspace.id === updated.id ? { ...workspace, ...updated } : workspace
+      )));
+      setActiveWorkspace((current) => ({ ...current, ...updated }));
+      return updated;
+    } finally {
+      setSavingWorkspace(false);
+    }
+  }, [activeWorkspace]);
+
+  const handleUpdateMemberRole = useCallback(async (userId, role) => {
+    if (!activeWorkspace) return;
+    setManagingMemberId(userId);
+    try {
+      const updated = await api.updateWorkspaceMember(activeWorkspace.id, userId, role);
+      setMembers((prev) => prev.map((member) => (
+        member.id === userId ? { ...member, role: updated.role } : member
+      )));
+    } finally {
+      setManagingMemberId(null);
+    }
+  }, [activeWorkspace]);
+
+  const handleRemoveMember = useCallback(async (userId) => {
+    if (!activeWorkspace) return;
+    setManagingMemberId(userId);
+    try {
+      await api.removeWorkspaceMember(activeWorkspace.id, userId);
+      setMembers((prev) => prev.filter((member) => member.id !== userId));
+    } finally {
+      setManagingMemberId(null);
     }
   }, [activeWorkspace]);
 
@@ -451,6 +508,7 @@ export default function DashboardPage() {
               notes={notes}
               onCreate={handleCreateNote}
               onUpdate={handleUpdateNote}
+              onUpdateSection={handleUpdateNoteSection}
               onDelete={handleDeleteNote}
               onAddImage={handleAddNoteImage}
               onDeleteImage={handleDeleteNoteImage}
@@ -471,6 +529,12 @@ export default function DashboardPage() {
               canInvite={canInvite}
               inviting={inviting}
               onInvite={handleInvite}
+              canManageWorkspace={canManageWorkspace}
+              savingWorkspace={savingWorkspace}
+              onUpdateWorkspace={handleUpdateWorkspace}
+              managingMemberId={managingMemberId}
+              onUpdateMemberRole={handleUpdateMemberRole}
+              onRemoveMember={handleRemoveMember}
               canDeleteWorkspace={canDeleteWorkspace}
               deletingWorkspace={deletingWorkspace}
               onDeleteWorkspace={handleDeleteWorkspace}

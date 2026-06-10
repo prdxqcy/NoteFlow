@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 export default function TeamPanel({
   workspace,
@@ -7,6 +7,12 @@ export default function TeamPanel({
   canInvite,
   inviting,
   onInvite,
+  canManageWorkspace,
+  savingWorkspace,
+  onUpdateWorkspace,
+  managingMemberId,
+  onUpdateMemberRole,
+  onRemoveMember,
   canDeleteWorkspace,
   deletingWorkspace,
   onDeleteWorkspace,
@@ -14,6 +20,17 @@ export default function TeamPanel({
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [workspaceName, setWorkspaceName] = useState(workspace?.name || '');
+  const [workspaceDescription, setWorkspaceDescription] = useState(workspace?.description || '');
+  const [workspaceError, setWorkspaceError] = useState('');
+  const [workspaceSuccess, setWorkspaceSuccess] = useState('');
+
+  useEffect(() => {
+    setWorkspaceName(workspace?.name || '');
+    setWorkspaceDescription(workspace?.description || '');
+    setWorkspaceError('');
+    setWorkspaceSuccess('');
+  }, [workspace?.id, workspace?.name, workspace?.description]);
 
   const memberSummary = useMemo(() => {
     const owners = members.filter((member) => member.role === 'owner').length;
@@ -43,6 +60,38 @@ export default function TeamPanel({
     const confirmed = window.confirm(`Delete "${workspace?.name}"? This removes its notes, meetings, and members.`);
     if (!confirmed) return;
     await onDeleteWorkspace();
+  }
+
+  async function handleWorkspaceSubmit(e) {
+    e.preventDefault();
+    setWorkspaceError('');
+    setWorkspaceSuccess('');
+    try {
+      await onUpdateWorkspace({ name: workspaceName, description: workspaceDescription });
+      setWorkspaceSuccess('Workspace details saved.');
+    } catch (err) {
+      setWorkspaceError(err.message);
+    }
+  }
+
+  async function handleRoleChange(member, role) {
+    setWorkspaceError('');
+    try {
+      await onUpdateMemberRole(member.id, role);
+    } catch (err) {
+      setWorkspaceError(err.message);
+    }
+  }
+
+  async function handleRemoveMember(member) {
+    const name = member.display_name || member.email;
+    if (!window.confirm(`Remove ${name} from this workspace?`)) return;
+    setWorkspaceError('');
+    try {
+      await onRemoveMember(member.id);
+    } catch (err) {
+      setWorkspaceError(err.message);
+    }
   }
 
   return (
@@ -76,6 +125,48 @@ export default function TeamPanel({
               </div>
             </div>
 
+            <div className="mt-5 border-t border-zinc-200 pt-5 dark:border-zinc-800">
+              <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Workspace profile</p>
+              {canManageWorkspace ? (
+                <form className="mt-4 space-y-4" onSubmit={handleWorkspaceSubmit}>
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    Name
+                    <input
+                      value={workspaceName}
+                      onChange={(e) => setWorkspaceName(e.target.value)}
+                      maxLength={120}
+                      required
+                      className="mt-2 w-full rounded-xl bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 focus:ring-emerald-400 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700"
+                    />
+                  </label>
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    Description
+                    <textarea
+                      value={workspaceDescription}
+                      onChange={(e) => setWorkspaceDescription(e.target.value)}
+                      maxLength={1000}
+                      rows={3}
+                      placeholder="What is this workspace used for?"
+                      className="mt-2 w-full resize-y rounded-xl bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 placeholder:text-zinc-400 focus:ring-emerald-400 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700"
+                    />
+                  </label>
+                  {workspaceError && <p className="text-sm text-red-500">{workspaceError}</p>}
+                  {workspaceSuccess && <p className="text-sm text-emerald-600 dark:text-emerald-400">{workspaceSuccess}</p>}
+                  <button
+                    type="submit"
+                    disabled={savingWorkspace}
+                    className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {savingWorkspace ? 'Saving...' : 'Save workspace'}
+                  </button>
+                </form>
+              ) : (
+                <p className="mt-3 text-sm text-zinc-500">
+                  {workspace?.description || 'No workspace description yet.'}
+                </p>
+              )}
+            </div>
+
             <div className="mt-5 space-y-3">
               {members.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-zinc-300 px-4 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-500">
@@ -97,9 +188,32 @@ export default function TeamPanel({
                       </p>
                       <p className="truncate text-xs text-zinc-500 dark:text-zinc-500">{member.email}</p>
                     </div>
-                    <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium capitalize text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                      {member.role}
-                    </span>
+                    {canManageWorkspace && member.role !== 'owner' ? (
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={member.role}
+                          disabled={managingMemberId === member.id}
+                          onChange={(e) => handleRoleChange(member, e.target.value)}
+                          className="rounded-lg bg-zinc-100 px-2 py-1.5 text-xs font-medium capitalize text-zinc-700 outline-none ring-1 ring-zinc-200 disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700"
+                          aria-label={`Role for ${member.display_name || member.email}`}
+                        >
+                          <option value="member">Member</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                        <button
+                          type="button"
+                          disabled={managingMemberId === member.id}
+                          onClick={() => handleRemoveMember(member)}
+                          className="rounded-lg px-2 py-1.5 text-xs font-medium text-red-600 ring-1 ring-red-200 hover:bg-red-50 disabled:opacity-50 dark:text-red-400 dark:ring-red-900 dark:hover:bg-red-950/40"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium capitalize text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                        {member.role}
+                      </span>
+                    )}
                   </div>
                 ))
               )}
@@ -135,7 +249,7 @@ export default function TeamPanel({
                 </form>
               ) : (
                 <p className="mt-4 rounded-xl bg-zinc-100 px-3 py-3 text-sm text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-                  Only the workspace owner can invite new members.
+                  Only workspace owners and admins can invite new members.
                 </p>
               )}
             </section>

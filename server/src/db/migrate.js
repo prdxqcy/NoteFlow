@@ -25,10 +25,16 @@ async function migrate() {
       CREATE TABLE IF NOT EXISTS workspaces (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
         owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         is_solo BOOLEAN DEFAULT true,
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
+    `);
+
+    await client.query(`
+      ALTER TABLE workspaces
+      ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '';
     `);
 
     await client.query(`
@@ -140,6 +146,23 @@ async function migrate() {
       ALTER TABLE note_images ADD COLUMN IF NOT EXISTS context_title TEXT;
       ALTER TABLE note_images ADD COLUMN IF NOT EXISTS context_content TEXT;
       ALTER TABLE note_images ADD COLUMN IF NOT EXISTS context_updated_at TIMESTAMPTZ;
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS note_sections (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        note_id UUID NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+        title TEXT NOT NULL DEFAULT 'Untitled',
+        content TEXT NOT NULL DEFAULT '',
+        context_updated_at TIMESTAMPTZ DEFAULT NOW(),
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+
+    await client.query(`
+      ALTER TABLE note_images
+      ADD COLUMN IF NOT EXISTS section_id UUID REFERENCES note_sections(id) ON DELETE SET NULL;
     `);
 
     // Workspace email invitations (for users without accounts yet)

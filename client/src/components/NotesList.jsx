@@ -124,6 +124,59 @@ function ScreenshotGroup({ images, onDeleteImage }) {
   );
 }
 
+function MergedNoteSection({ section, images, onUpdate, onDeleteImage }) {
+  const [title, setTitle] = useState(section.title);
+  const [content, setContent] = useState(section.content);
+  const saveTimer = useRef(null);
+
+  useEffect(() => setTitle(section.title), [section.title]);
+  useEffect(() => setContent(section.content), [section.content]);
+  useEffect(() => () => clearTimeout(saveTimer.current), []);
+
+  function scheduleUpdate(patch) {
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => onUpdate(section.id, patch), 600);
+  }
+
+  return (
+    <section className="overflow-hidden rounded-xl border border-black/10 bg-white/55 dark:border-black/10 dark:bg-zinc-50/80">
+      <div className="border-b border-black/10 p-3 dark:border-black/10">
+        <div className="flex items-center justify-between gap-2">
+          <input
+            value={title}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              scheduleUpdate({ title: e.target.value });
+            }}
+            className="min-w-0 flex-1 bg-transparent text-xs font-semibold text-zinc-800 outline-none"
+            aria-label="Merged note section title"
+          />
+          <time className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+            {formatContextDate(section.context_updated_at)}
+          </time>
+        </div>
+        <textarea
+          value={content}
+          onChange={(e) => {
+            setContent(e.target.value);
+            scheduleUpdate({ content: e.target.value });
+          }}
+          placeholder="Write something..."
+          className="mt-2 min-h-[64px] w-full resize-y bg-transparent text-xs leading-relaxed text-zinc-600 outline-none placeholder:text-zinc-400"
+          aria-label={`Text for ${title || 'merged note section'}`}
+        />
+      </div>
+      {images.length > 0 && (
+        <div className="grid gap-2 p-2">
+          {images.map((image) => (
+            <NoteImage key={image.id} image={image} onDelete={() => onDeleteImage(image.id)} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function NoteCard({
   note,
   isMoving,
@@ -131,6 +184,7 @@ function NoteCard({
   desktopMergeEnabled,
   onMoveStart,
   onUpdate,
+  onUpdateSection,
   onDelete,
   onAddImage,
   onDeleteImage,
@@ -146,6 +200,7 @@ function NoteCard({
   const imageGroups = useMemo(() => {
     const groups = new Map();
     for (const image of note.images || []) {
+      if (image.section_id) continue;
       const key = image.context_title
         ? `${image.context_title}|${image.context_updated_at || ''}|${image.context_content || ''}`
         : `unmerged:${image.id}`;
@@ -158,6 +213,7 @@ function NoteCard({
       return second - first;
     });
   }, [note.images]);
+  const sections = note.sections || [];
 
   useEffect(() => setTitle(note.title), [note.title]);
   useEffect(() => setContent(note.content), [note.content]);
@@ -301,23 +357,38 @@ function NoteCard({
             <TrashIcon />
           </button>
       </div>
-      <textarea
-        className="min-h-[80px] resize-none bg-transparent text-sm text-zinc-600 outline-none placeholder:text-zinc-400 dark:text-zinc-700 dark:placeholder:text-zinc-400"
-        value={content}
-        placeholder="Write something..."
-        onChange={(e) => {
-          setContent(e.target.value);
-          scheduleUpdate({ content: e.target.value });
-        }}
-        onPaste={(e) => {
-          const images = [...e.clipboardData.files].filter((file) => file.type.startsWith('image/'));
-          if (images.length) {
-            e.preventDefault();
-            addImages(images);
-          }
-        }}
-      />
-      {(note.images || []).length > 0 && (
+      {sections.length === 0 && (
+        <textarea
+          className="min-h-[80px] resize-none bg-transparent text-sm text-zinc-600 outline-none placeholder:text-zinc-400 dark:text-zinc-700 dark:placeholder:text-zinc-400"
+          value={content}
+          placeholder="Write something..."
+          onChange={(e) => {
+            setContent(e.target.value);
+            scheduleUpdate({ content: e.target.value });
+          }}
+          onPaste={(e) => {
+            const images = [...e.clipboardData.files].filter((file) => file.type.startsWith('image/'));
+            if (images.length) {
+              e.preventDefault();
+              addImages(images);
+            }
+          }}
+        />
+      )}
+      {sections.length > 0 && (
+        <div className="grid gap-2">
+          {sections.map((section) => (
+            <MergedNoteSection
+              key={section.id}
+              section={section}
+              images={(note.images || []).filter((image) => image.section_id === section.id)}
+              onUpdate={(sectionId, patch) => onUpdateSection(note.id, sectionId, patch)}
+              onDeleteImage={(imageId) => onDeleteImage(note.id, imageId)}
+            />
+          ))}
+        </div>
+      )}
+      {imageGroups.length > 0 && (
         <div className="grid gap-2">
           {imageGroups.map((images) => (
             <ScreenshotGroup
@@ -367,6 +438,7 @@ export default function NotesList({
   notes,
   onCreate,
   onUpdate,
+  onUpdateSection,
   onDelete,
   onAddImage,
   onDeleteImage,
@@ -591,6 +663,7 @@ export default function NotesList({
                   desktopMergeEnabled={desktopMergeEnabled && !query.trim()}
                   onMoveStart={handleMoveStart}
                   onUpdate={onUpdate}
+                  onUpdateSection={onUpdateSection}
                   onDelete={onDelete}
                   onAddImage={onAddImage}
                   onDeleteImage={onDeleteImage}

@@ -43,15 +43,22 @@ export const api = {
   // workspaces
   getWorkspaces: () => request('/workspaces'),
   createWorkspace: (body) => request('/workspaces', { method: 'POST', body }),
+  updateWorkspace: (id, body) => request(`/workspaces/${id}`, { method: 'PATCH', body }),
   deleteWorkspace: (id) => request(`/workspaces/${id}`, { method: 'DELETE' }),
   inviteMember: (id, email) => request(`/workspaces/${id}/invite`, { method: 'POST', body: { email } }),
   getMembers: (id) => request(`/workspaces/${id}/members`),
+  updateWorkspaceMember: (id, userId, role) =>
+    request(`/workspaces/${id}/members/${userId}`, { method: 'PATCH', body: { role } }),
+  removeWorkspaceMember: (id, userId) =>
+    request(`/workspaces/${id}/members/${userId}`, { method: 'DELETE' }),
   getInvitation: (token) => request(`/invitations/${token}`),
 
   // notes
   getNotes: (workspaceId) => request(`/notes/workspace/${workspaceId}`),
   createNote: (body) => request('/notes', { method: 'POST', body }),
   updateNote: (id, body) => request(`/notes/${id}`, { method: 'PATCH', body }),
+  updateNoteSection: (noteId, sectionId, body) =>
+    request(`/notes/${noteId}/sections/${sectionId}`, { method: 'PATCH', body }),
   deleteNote: (id) => request(`/notes/${id}`, { method: 'DELETE' }),
   reorderNotes: (workspaceId, note_ids) =>
     request(`/notes/workspace/${workspaceId}/order`, { method: 'PUT', body: { note_ids } }),
