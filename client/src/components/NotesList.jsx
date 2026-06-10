@@ -192,7 +192,7 @@ function NoteCard({
         isImageDragging
           ? 'border-blue-500 ring-4 ring-blue-500/20 dark:border-blue-400'
           : isMoving
-            ? 'border-amber-500 shadow-xl ring-4 ring-amber-500/20 dark:border-amber-400'
+            ? 'border-zinc-300 shadow-sm dark:border-zinc-300'
             : isMergeTarget
               ? 'border-violet-500 ring-4 ring-violet-500/25 dark:border-violet-400'
             : 'border-zinc-200 dark:border-zinc-300'
@@ -286,7 +286,7 @@ function NoteCard({
             title={note.is_private ? 'Make visible to workspace' : 'Make private (only you)'}
             className={`rounded p-1 text-xs transition-colors ${
               note.is_private
-                ? 'text-amber-500 hover:bg-black/5 hover:text-amber-700 dark:text-amber-400 dark:hover:bg-white/5 dark:hover:text-amber-300'
+                ? 'text-emerald-500 hover:bg-black/5 hover:text-emerald-700 dark:text-emerald-400 dark:hover:bg-white/5 dark:hover:text-emerald-300'
                 : 'text-zinc-500 hover:bg-black/5 hover:text-zinc-900 dark:text-zinc-500 dark:hover:bg-black/5 dark:hover:text-zinc-900'
             }`}
           >
@@ -351,7 +351,7 @@ function NoteCard({
       <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-500">
         <span className="flex items-center gap-1">
           {note.is_private && (
-            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+            <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
               Private
             </span>
           )}
@@ -524,19 +524,19 @@ export default function NotesList({
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <header className="border-b border-zinc-200 px-4 py-3 sm:px-6 dark:border-zinc-800">
+      <header className="border-b border-zinc-200 px-4 py-3 sm:px-6 dark:border-slate-600/60 dark:bg-[#202c40]">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="mr-auto text-base font-semibold text-zinc-900 dark:text-zinc-100">Notes</h2>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search…"
-            className="w-36 rounded-lg bg-zinc-100 px-3 py-1.5 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:ring-1 focus:ring-zinc-400 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-600 dark:focus:ring-zinc-600 sm:w-44"
+            className="w-36 rounded-lg bg-zinc-100 px-3 py-1.5 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:ring-1 focus:ring-zinc-400 dark:bg-[#2a374c] dark:text-zinc-100 dark:placeholder:text-slate-400 dark:focus:ring-emerald-500 sm:w-44"
           />
           <AiNoteAssistant onCreate={onCreate} onUpdate={onUpdate} />
           <button
             onClick={() => onCreate()}
-            className="hidden rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 sm:block dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
+            className="hidden rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 sm:block dark:bg-emerald-500 dark:hover:bg-emerald-400"
           >
             + New note
           </button>
@@ -551,7 +551,7 @@ export default function NotesList({
                 <p className="text-sm">Start this workspace with your first note.</p>
                 <button
                   onClick={() => onCreate()}
-                  className="mt-2 rounded-lg bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
+                  className="mt-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-white dark:hover:bg-emerald-400"
                 >
                   Add your first note
                 </button>
@@ -567,7 +567,7 @@ export default function NotesList({
           <div
             ref={boardRef}
             className={desktopMergeEnabled
-              ? `relative rounded-2xl bg-[radial-gradient(circle,_rgba(113,113,122,0.16)_1px,_transparent_1px)] [background-size:24px_24px] ${
+              ? `relative bg-transparent bg-[radial-gradient(circle,_rgba(100,116,139,0.15)_1px,_transparent_1px)] [background-size:24px_24px] dark:bg-transparent dark:bg-[radial-gradient(circle,_rgba(148,163,184,0.14)_1px,_transparent_1px)] ${
                   isPanning ? 'cursor-grabbing' : 'cursor-grab'
                 }`
               : 'grid grid-cols-1 items-start gap-4 md:grid-cols-2'}

@@ -52,7 +52,7 @@ export default function SettingsPanel() {
                       setForm((prev) => ({ ...prev, toggleHotkey: e.target.value }));
                     }}
                     placeholder="CommandOrControl+Alt+N"
-                    className="w-full rounded-xl bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 placeholder:text-zinc-400 focus:ring-amber-400 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700 dark:placeholder:text-zinc-600 dark:focus:ring-zinc-500"
+                    className="w-full rounded-xl bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 placeholder:text-zinc-400 focus:ring-emerald-400 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700 dark:placeholder:text-zinc-600 dark:focus:ring-zinc-500"
                   />
                 </label>
 
@@ -67,7 +67,7 @@ export default function SettingsPanel() {
                       setForm((prev) => ({ ...prev, newNoteHotkey: e.target.value }));
                     }}
                     placeholder="CommandOrControl+Shift+N"
-                    className="w-full rounded-xl bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 placeholder:text-zinc-400 focus:ring-amber-400 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700 dark:placeholder:text-zinc-600 dark:focus:ring-zinc-500"
+                    className="w-full rounded-xl bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 placeholder:text-zinc-400 focus:ring-emerald-400 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700 dark:placeholder:text-zinc-600 dark:focus:ring-zinc-500"
                   />
                 </label>
 
@@ -82,7 +82,7 @@ export default function SettingsPanel() {
                       setForm((prev) => ({ ...prev, newMeetingHotkey: e.target.value }));
                     }}
                     placeholder="CommandOrControl+Shift+M"
-                    className="w-full rounded-xl bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 placeholder:text-zinc-400 focus:ring-amber-400 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700 dark:placeholder:text-zinc-600 dark:focus:ring-zinc-500"
+                    className="w-full rounded-xl bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 placeholder:text-zinc-400 focus:ring-emerald-400 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700 dark:placeholder:text-zinc-600 dark:focus:ring-zinc-500"
                   />
                 </label>
 
@@ -96,7 +96,7 @@ export default function SettingsPanel() {
                 <button
                   type="submit"
                   disabled={desktop.loading || desktop.saving}
-                  className="w-full rounded-xl bg-zinc-950 px-3 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
+                  className="w-full rounded-xl bg-emerald-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 dark:bg-emerald-500 dark:text-white dark:hover:bg-emerald-400"
                 >
                   {desktop.saving ? 'Saving shortcuts...' : 'Save shortcuts'}
                 </button>

@@ -121,14 +121,14 @@ export default function TeamPanel({
                     value={email}
                     onChange={(e) => { setEmail(e.target.value); setSuccessMsg(''); }}
                     placeholder="teammate@example.com"
-                    className="w-full rounded-xl bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 placeholder:text-zinc-400 focus:ring-amber-400 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700 dark:placeholder:text-zinc-600 dark:focus:ring-zinc-500"
+                    className="w-full rounded-xl bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 placeholder:text-zinc-400 focus:ring-emerald-400 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700 dark:placeholder:text-zinc-600 dark:focus:ring-zinc-500"
                   />
                   {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
                   {successMsg && <p className="text-sm text-green-600 dark:text-green-400">{successMsg}</p>}
                   <button
                     type="submit"
                     disabled={inviting}
-                    className="w-full rounded-xl bg-zinc-950 px-3 py-2.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
+                    className="w-full rounded-xl bg-emerald-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 dark:bg-emerald-500 dark:text-white dark:hover:bg-emerald-400"
                   >
                     {inviting ? 'Sending invite...' : 'Invite member'}
                   </button>

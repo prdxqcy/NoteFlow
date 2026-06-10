@@ -190,7 +190,7 @@ function CreateMeetingModal({ onClose, onCreate }) {
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 rounded-xl bg-zinc-900 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
+              className="flex-1 rounded-xl bg-zinc-900 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-emerald-500 dark:text-white dark:hover:bg-emerald-400"
             >
               {loading ? 'Creating…' : 'Create meeting'}
             </button>
@@ -272,7 +272,7 @@ export default function MeetingsList({ meetings, onCreate, onDelete, forceCompos
           {/* New meeting */}
           <button
             onClick={() => setShowModal(true)}
-            className="hidden rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 sm:block dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
+            className="hidden rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 sm:block dark:bg-emerald-500 dark:text-white dark:hover:bg-emerald-400"
           >
             + New meeting
           </button>
@@ -287,7 +287,7 @@ export default function MeetingsList({ meetings, onCreate, onDelete, forceCompos
                 <p className="text-sm">Schedule your first meeting for this workspace.</p>
                 <button
                   onClick={() => setShowModal(true)}
-                  className="mt-2 rounded-lg bg-zinc-950 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
+                  className="mt-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:text-white dark:hover:bg-emerald-400"
                 >
                   Add your first meeting
                 </button>

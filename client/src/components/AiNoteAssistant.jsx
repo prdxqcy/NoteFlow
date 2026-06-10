@@ -109,7 +109,7 @@ export default function AiNoteAssistant({ note, onCreate, onUpdate }) {
             <button
               onClick={run}
               disabled={loading || (activeAction === 'generate' && !prompt.trim())}
-              className="w-full rounded-lg bg-zinc-900 py-2 text-sm font-semibold text-white hover:bg-zinc-700 disabled:opacity-40 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
+              className="w-full rounded-lg bg-zinc-900 py-2 text-sm font-semibold text-white hover:bg-zinc-700 disabled:opacity-40 dark:bg-emerald-500 dark:text-white dark:hover:bg-emerald-400"
             >
               {loading ? 'Thinking…' : action?.label}
             </button>

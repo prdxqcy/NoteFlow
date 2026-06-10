@@ -1,13 +1,13 @@
 export default function BrandMark({ compact = false }) {
   return (
     <div className={`flex items-center ${compact ? 'gap-2.5' : 'gap-4'}`}>
-      <div className={`relative shrink-0 overflow-hidden rounded-[22px] border border-amber-200/40 bg-[linear-gradient(135deg,#18181b_0%,#27272a_55%,#0f172a_100%)] shadow-[0_14px_40px_rgba(15,23,42,0.28)] ${compact ? 'h-12 w-12' : 'h-16 w-16'}`}>
-        <div className="absolute inset-[3px] rounded-[18px] bg-[radial-gradient(circle_at_30%_25%,rgba(251,191,36,0.95),transparent_34%),radial-gradient(circle_at_72%_78%,rgba(96,165,250,0.65),transparent_36%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0))]" />
+      <div className={`relative shrink-0 overflow-hidden rounded-[22px] border border-emerald-200/50 bg-[linear-gradient(135deg,#101827_0%,#162337_100%)] shadow-[0_14px_40px_rgba(15,23,42,0.24)] ${compact ? 'h-12 w-12' : 'h-16 w-16'}`}>
+        <div className="absolute inset-[3px] rounded-[18px] bg-[radial-gradient(circle_at_30%_25%,rgba(16,185,129,0.9),transparent_38%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0))]" />
         <svg viewBox="0 0 64 64" aria-hidden="true" className="absolute inset-0 h-full w-full">
           <defs>
             <linearGradient id="Cove-orbit" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#fcd34d" />
-              <stop offset="100%" stopColor="#60a5fa" />
+              <stop offset="0%" stopColor="#34d399" />
+              <stop offset="100%" stopColor="#059669" />
             </linearGradient>
           </defs>
           <path
@@ -23,7 +23,7 @@ export default function BrandMark({ compact = false }) {
             strokeWidth="3"
             strokeLinecap="round"
           />
-          <circle cx="43" cy="43" r="5.5" fill="#f59e0b" />
+          <circle cx="43" cy="43" r="5.5" fill="#10b981" />
         </svg>
       </div>
 

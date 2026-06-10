@@ -48,7 +48,7 @@ export default function RegisterPage() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Create account</h1>
             {inviteInfo && (
-              <p className="mt-1 text-sm text-amber-600 dark:text-amber-400">
+              <p className="mt-1 text-sm text-emerald-600 dark:text-emerald-400">
                 Joining <strong>{inviteInfo.workspace_name}</strong> · invited by {inviteInfo.inviter_name}
               </p>
             )}
@@ -66,7 +66,7 @@ export default function RegisterPage() {
             type="text"
             placeholder="Display name"
             required
-            className="w-full rounded-lg bg-white px-4 py-3 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 placeholder:text-zinc-400 focus:ring-amber-400 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-800 dark:placeholder:text-zinc-500 dark:focus:ring-zinc-600"
+            className="w-full rounded-lg bg-white px-4 py-3 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 placeholder:text-zinc-400 focus:ring-emerald-400 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-800 dark:placeholder:text-zinc-500 dark:focus:ring-zinc-600"
             value={form.display_name}
             onChange={(e) => setForm({ ...form, display_name: e.target.value })}
           />
@@ -74,7 +74,7 @@ export default function RegisterPage() {
             type="email"
             placeholder="Email"
             required
-            className="w-full rounded-lg bg-white px-4 py-3 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 placeholder:text-zinc-400 focus:ring-amber-400 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-800 dark:placeholder:text-zinc-500 dark:focus:ring-zinc-600"
+            className="w-full rounded-lg bg-white px-4 py-3 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 placeholder:text-zinc-400 focus:ring-emerald-400 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-800 dark:placeholder:text-zinc-500 dark:focus:ring-zinc-600"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
           />
@@ -83,7 +83,7 @@ export default function RegisterPage() {
             placeholder="Password"
             required
             minLength={8}
-            className="w-full rounded-lg bg-white px-4 py-3 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 placeholder:text-zinc-400 focus:ring-amber-400 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-800 dark:placeholder:text-zinc-500 dark:focus:ring-zinc-600"
+            className="w-full rounded-lg bg-white px-4 py-3 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 placeholder:text-zinc-400 focus:ring-emerald-400 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-800 dark:placeholder:text-zinc-500 dark:focus:ring-zinc-600"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
           />
@@ -91,7 +91,7 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-zinc-950 py-3 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-200"
+            className="w-full rounded-lg bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 dark:bg-emerald-500 dark:text-white dark:hover:bg-emerald-400"
           >
             {loading ? 'Creating...' : 'Create account'}
           </button>

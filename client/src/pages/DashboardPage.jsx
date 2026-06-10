@@ -113,7 +113,7 @@ function MobileShell({
           />
           <button
             type="submit"
-            className="rounded-2xl bg-zinc-950 px-4 py-2.5 text-sm font-medium text-white dark:bg-white dark:text-zinc-950"
+            className="rounded-2xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white dark:bg-white dark:text-zinc-950"
           >
             Add
           </button>
@@ -169,7 +169,7 @@ function MobileTopBar({ workspaceName, view, onOpenMenu, onCreateNote, onCreateM
         {showActionButton ? (
           <button
             onClick={handleAction}
-            className="rounded-2xl bg-zinc-950 px-3 py-2 text-sm font-medium text-white dark:bg-white dark:text-zinc-950"
+            className="rounded-2xl bg-emerald-600 px-3 py-2 text-sm font-medium text-white dark:bg-white dark:text-zinc-950"
           >
             {view === 'team' ? actionLabel : `+ New ${actionLabel}`}
           </button>
@@ -378,7 +378,7 @@ export default function DashboardPage() {
   }, [activeWorkspace]);
 
   return (
-    <div className="flex h-[100dvh] flex-col overflow-hidden bg-stone-100 dark:bg-zinc-950 lg:flex-row">
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-slate-50 dark:bg-[#182235] lg:flex-row">
       <Sidebar
         workspaces={workspaces}
         activeWorkspace={activeWorkspace}
@@ -414,18 +414,18 @@ export default function DashboardPage() {
           onCreateMeeting={() => handleCreateMeeting()}
         />
 
-        <section className="hidden gap-2.5 border-b border-zinc-200 bg-stone-100 px-6 py-3 md:grid md:grid-cols-3 dark:border-zinc-800 dark:bg-zinc-950">
-          <div className="rounded-xl border border-zinc-200/80 bg-white/85 px-4 py-3 shadow-sm shadow-zinc-200/40 dark:border-zinc-800 dark:bg-zinc-900/70 dark:shadow-none">
+        <section className="hidden gap-2.5 border-b border-slate-200 bg-slate-50 px-6 py-3 md:grid md:grid-cols-3 dark:border-slate-600/60 dark:bg-[#202c40]">
+          <div className="rounded-xl border border-zinc-200/80 bg-white/85 px-4 py-3 shadow-sm shadow-zinc-200/40 dark:border-slate-600/70 dark:bg-[#2a374c] dark:shadow-sm dark:shadow-black/15">
             <p className="text-[10px] font-medium uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-500">Workspace</p>
             <p className="mt-1.5 text-base font-semibold text-zinc-900 dark:text-zinc-100">
               {activeWorkspace?.name || 'No workspace'}
             </p>
           </div>
-          <div className="rounded-xl border border-zinc-200/80 bg-white/85 px-4 py-3 shadow-sm shadow-zinc-200/40 dark:border-zinc-800 dark:bg-zinc-900/70 dark:shadow-none">
+          <div className="rounded-xl border border-zinc-200/80 bg-white/85 px-4 py-3 shadow-sm shadow-zinc-200/40 dark:border-slate-600/70 dark:bg-[#2a374c] dark:shadow-sm dark:shadow-black/15">
             <p className="text-[10px] font-medium uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-500">Pinned notes</p>
             <p className="mt-1.5 text-base font-semibold text-zinc-900 dark:text-zinc-100">{pinnedNotes}</p>
           </div>
-          <div className="rounded-xl border border-zinc-200/80 bg-white/85 px-4 py-3 shadow-sm shadow-zinc-200/40 dark:border-zinc-800 dark:bg-zinc-900/70 dark:shadow-none">
+          <div className="rounded-xl border border-zinc-200/80 bg-white/85 px-4 py-3 shadow-sm shadow-zinc-200/40 dark:border-slate-600/70 dark:bg-[#2a374c] dark:shadow-sm dark:shadow-black/15">
             <p className="text-[10px] font-medium uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-500">Upcoming meetings</p>
             <p className="mt-1.5 text-base font-semibold text-zinc-900 dark:text-zinc-100">{upcomingMeetings}</p>
           </div>

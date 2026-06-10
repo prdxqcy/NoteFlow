@@ -161,7 +161,7 @@ export default function QuickCapturePage({ initialType = 'note' }) {
             <div className="flex items-start justify-between gap-4 border-b border-zinc-800/80 px-5 pb-4 pt-4 [webkit-app-region:drag]">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-zinc-500">
-                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/12 text-amber-300">
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-300">
                     {isMeeting ? <CalendarIcon /> : <SparkIcon />}
                   </span>
                   Quick Capture
@@ -176,7 +176,7 @@ export default function QuickCapturePage({ initialType = 'note' }) {
               <button
                 type="button"
                 onClick={() => window.close()}
-                className="flex h-10 w-10 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900 text-zinc-400 transition hover:border-zinc-700 hover:bg-zinc-800 hover:text-zinc-100 [webkit-app-region:no-drag]"
+                className="flex h-10 w-10 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900 text-zinc-400 transition hover:border-zinc-700 hover:bg-emerald-700 hover:text-zinc-100 [webkit-app-region:no-drag]"
                 aria-label="Close quick capture"
                 title="Close"
               >
@@ -224,7 +224,7 @@ export default function QuickCapturePage({ initialType = 'note' }) {
                   value={workspaceId}
                   onChange={(event) => setWorkspaceId(event.target.value)}
                   disabled={loading || workspaces.length === 0}
-                  className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-zinc-100 outline-none transition focus:border-amber-400"
+                  className="w-full rounded-xl border border-zinc-700 bg-[#08111f] px-3 py-2.5 text-sm text-zinc-100 outline-none transition focus:border-emerald-400"
                 >
                   {workspaces.length === 0 ? (
                     <option value="">No workspaces available</option>
@@ -255,7 +255,7 @@ export default function QuickCapturePage({ initialType = 'note' }) {
                         : setNoteForm((prev) => ({ ...prev, title: event.target.value }))
                     }
                     placeholder={isMeeting ? 'Weekly planning, client review, product sync' : 'Sprint ideas, launch checklist, call notes'}
-                    className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-500 focus:border-amber-400"
+                    className="w-full rounded-xl border border-zinc-700 bg-[#08111f] px-3 py-2.5 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-500 focus:border-emerald-400"
                   />
                 </label>
 
@@ -270,7 +270,7 @@ export default function QuickCapturePage({ initialType = 'note' }) {
                     }
                     rows={isMeeting ? 3 : 5}
                     placeholder={isMeeting ? 'Agenda, links, or prep notes' : 'Write the note body here'}
-                    className="w-full resize-none rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-500 focus:border-amber-400"
+                    className="w-full resize-none rounded-xl border border-zinc-700 bg-[#08111f] px-3 py-3 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-500 focus:border-emerald-400"
                   />
                 </label>
 
@@ -283,7 +283,7 @@ export default function QuickCapturePage({ initialType = 'note' }) {
                         required
                         value={meetingForm.start_time}
                         onChange={(event) => setMeetingForm((prev) => ({ ...prev, start_time: event.target.value }))}
-                        className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-zinc-100 outline-none transition focus:border-amber-400"
+                        className="w-full rounded-xl border border-zinc-700 bg-[#08111f] px-3 py-2.5 text-sm text-zinc-100 outline-none transition focus:border-emerald-400"
                       />
                     </label>
                     <label className="block">
@@ -292,7 +292,7 @@ export default function QuickCapturePage({ initialType = 'note' }) {
                         type="datetime-local"
                         value={meetingForm.end_time}
                         onChange={(event) => setMeetingForm((prev) => ({ ...prev, end_time: event.target.value }))}
-                        className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-zinc-100 outline-none transition focus:border-amber-400"
+                        className="w-full rounded-xl border border-zinc-700 bg-[#08111f] px-3 py-2.5 text-sm text-zinc-100 outline-none transition focus:border-emerald-400"
                       />
                     </label>
                   </div>
@@ -340,7 +340,7 @@ export default function QuickCapturePage({ initialType = 'note' }) {
                   <button
                     type="submit"
                     disabled={saving || loading || !workspaceId}
-                    className="rounded-xl bg-amber-400 px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-amber-300 disabled:opacity-50"
+                    className="rounded-xl bg-emerald-400 px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-emerald-300 disabled:opacity-50"
                   >
                     {saving ? 'Saving...' : isMeeting ? 'Create meeting' : 'Create note'}
                   </button>
