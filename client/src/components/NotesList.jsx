@@ -4,11 +4,11 @@ import AiNoteAssistant from './AiNoteAssistant';
 
 const NOTE_COLORS = [
   { value: '#ffffff', label: 'Default' },
-  { value: '#fef3c7', label: 'Amber' },
-  { value: '#dbeafe', label: 'Blue' },
-  { value: '#dcfce7', label: 'Green' },
-  { value: '#fce7f3', label: 'Pink' },
-  { value: '#ede9fe', label: 'Violet' },
+  { value: '#fbbf24', label: 'Amber' },
+  { value: '#60a5fa', label: 'Blue' },
+  { value: '#4ade80', label: 'Green' },
+  { value: '#f87171', label: 'Red' },
+  { value: '#a78bfa', label: 'Violet' },
 ];
 
 function findOpenDesktopPosition(occupied) {
@@ -293,7 +293,7 @@ function NoteCard({
               ? 'border-violet-500 ring-4 ring-violet-500/25 dark:border-violet-400'
             : 'border-zinc-200 dark:border-zinc-300'
       } ${desktopMergeEnabled ? 'h-full overflow-auto' : ''}`}
-      style={{ background: noteColor === '#ffffff' ? undefined : `${noteColor}55` }}
+      style={{ background: noteColor === '#ffffff' ? undefined : noteColor }}
       onPointerDown={(e) => {
         if (desktopMergeEnabled && !e.target.closest('input, textarea, button, a')) {
           clearTimeout(saveTimer.current);
