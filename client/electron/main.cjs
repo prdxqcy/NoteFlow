@@ -72,6 +72,12 @@ function getAppUrl(search = '') {
   return `${pathToFileURL(path.join(appRoot, 'dist', 'index.html')).toString()}${search}`;
 }
 
+function getAppIconPath() {
+  return rendererUrl
+    ? path.join(appRoot, 'public', 'icon-512.png')
+    : path.join(appRoot, 'dist', 'icon-512.png');
+}
+
 function installWindowDiagnostics(window, label) {
   window.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
     console.error(`[${label}] failed to load ${validatedURL}: ${errorCode} ${errorDescription}`);
@@ -91,6 +97,7 @@ function createMainWindow() {
     autoHideMenuBar: true,
     backgroundColor: '#09090b',
     title: 'Cove',
+    icon: getAppIconPath(),
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -133,11 +140,11 @@ function createMainWindow() {
 function createQuickCaptureWindow(type = 'note') {
   const isMeeting = type === 'meeting';
   const window = new BrowserWindow({
-    width: 520,
-    height: isMeeting ? 690 : 620,
-    minWidth: 500,
-    minHeight: isMeeting ? 660 : 590,
-    maxWidth: 620,
+    width: 590,
+    height: isMeeting ? 760 : 700,
+    minWidth: 560,
+    minHeight: isMeeting ? 720 : 660,
+    maxWidth: 680,
     autoHideMenuBar: true,
     maximizable: false,
     minimizable: false,
@@ -148,6 +155,7 @@ function createQuickCaptureWindow(type = 'note') {
     frame: false,
     backgroundColor: '#0b0c0f',
     title: type === 'meeting' ? 'New Meeting - Cove' : 'New Note - Cove',
+    icon: getAppIconPath(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -209,7 +217,7 @@ function toggleMainWindow() {
 function openQuickCaptureWindow(type = 'note') {
   if (quickCaptureWindow && !quickCaptureWindow.isDestroyed()) {
     quickCaptureWindow.setTitle(type === 'meeting' ? 'New Meeting - Cove' : 'New Note - Cove');
-    quickCaptureWindow.setSize(520, type === 'meeting' ? 690 : 620);
+    quickCaptureWindow.setSize(590, type === 'meeting' ? 760 : 700);
     quickCaptureWindow.loadURL(getAppUrl(`?quickCapture=${type}`));
     if (quickCaptureWindow.isMinimized()) quickCaptureWindow.restore();
     quickCaptureWindow.show();

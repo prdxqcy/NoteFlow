@@ -5,11 +5,11 @@ import { useAuth } from '../hooks/useAuth.jsx';
 
 const NOTE_COLORS = [
   { value: '#ffffff', label: 'Default' },
-  { value: '#f6d365', label: 'Amber' },
-  { value: '#93c5fd', label: 'Blue' },
-  { value: '#86efac', label: 'Green' },
-  { value: '#f9a8d4', label: 'Rose' },
-  { value: '#c4b5fd', label: 'Violet' },
+  { value: '#fbbf24', label: 'Amber' },
+  { value: '#60a5fa', label: 'Blue' },
+  { value: '#4ade80', label: 'Green' },
+  { value: '#f87171', label: 'Red' },
+  { value: '#a78bfa', label: 'Violet' },
 ];
 
 function toLocalInputValue(date) {
@@ -56,7 +56,7 @@ function CalendarIcon() {
 }
 
 function FieldLabel({ children }) {
-  return <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-500">{children}</span>;
+  return <span className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">{children}</span>;
 }
 
 export default function QuickCapturePage({ initialType = 'note' }) {
@@ -154,38 +154,33 @@ export default function QuickCapturePage({ initialType = 'note' }) {
   const isMeeting = type === 'meeting';
 
   return (
-    <div className="min-h-screen overflow-hidden bg-[#0b0c0f] p-3 text-zinc-100">
-      <div className="mx-auto flex min-h-[calc(100vh-1.5rem)] max-w-[540px] items-center justify-center">
-        <div className="w-full rounded-[28px] border border-zinc-800 bg-[linear-gradient(180deg,#171922_0%,#11131a_100%)] p-3 shadow-[0_24px_60px_rgba(0,0,0,0.45)]">
-          <div className="rounded-[22px] border border-zinc-800/90 bg-zinc-950/75">
-            <div className="flex items-start justify-between gap-4 border-b border-zinc-800/80 px-5 pb-4 pt-4 [webkit-app-region:drag]">
+    <div className="h-screen overflow-hidden bg-[#0c0f14] p-4 text-zinc-100">
+      <div className="mx-auto flex h-full max-w-[560px] items-center justify-center">
+        <section className="flex max-h-full w-full flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-[#151820] shadow-[0_24px_70px_rgba(0,0,0,0.42)]">
+          <header className="flex items-center justify-between gap-4 border-b border-zinc-800 px-5 py-4 [webkit-app-region:drag]">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-400/12 text-emerald-300 ring-1 ring-emerald-300/20">
+                {isMeeting ? <CalendarIcon /> : <SparkIcon />}
+              </span>
               <div className="min-w-0">
-                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-zinc-500">
-                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/12 text-emerald-300">
-                    {isMeeting ? <CalendarIcon /> : <SparkIcon />}
-                  </span>
-                  Quick Capture
-                </div>
-                <h1 className="mt-3 text-[24px] font-semibold tracking-tight text-zinc-50">
-                  {isMeeting ? 'New meeting' : 'New note'}
-                </h1>
-                <p className="mt-1 text-sm text-zinc-400">
-                  {isMeeting ? 'Plan the meeting and drop it into the right workspace.' : 'Capture the idea fast and file it where it belongs.'}
-                </p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500">Quick Capture</p>
+                <h1 className="mt-1 truncate text-xl font-semibold text-zinc-50">{isMeeting ? 'New meeting' : 'New note'}</h1>
               </div>
-              <button
-                type="button"
-                onClick={() => window.close()}
-                className="flex h-10 w-10 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900 text-zinc-400 transition hover:border-zinc-700 hover:bg-emerald-700 hover:text-zinc-100 [webkit-app-region:no-drag]"
-                aria-label="Close quick capture"
-                title="Close"
-              >
-                <CloseIcon />
-              </button>
             </div>
+            <button
+              type="button"
+              onClick={() => window.close()}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-zinc-700 bg-zinc-900 text-zinc-400 transition hover:border-zinc-600 hover:bg-zinc-800 hover:text-zinc-100 [webkit-app-region:no-drag]"
+              aria-label="Close quick capture"
+              title="Close"
+            >
+              <CloseIcon />
+            </button>
+          </header>
 
-            <div className="px-5 pt-4">
-              <div className="grid grid-cols-2 gap-2 rounded-2xl bg-zinc-900 p-1.5">
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+            <div className="rounded-xl bg-zinc-950/55 p-1">
+              <div className="grid grid-cols-2 gap-1">
                 <button
                   type="button"
                   onClick={() => {
@@ -193,8 +188,8 @@ export default function QuickCapturePage({ initialType = 'note' }) {
                     setError('');
                     setMessage('');
                   }}
-                  className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
-                    !isMeeting ? 'bg-zinc-50 text-zinc-950 shadow-sm' : 'text-zinc-400 hover:text-zinc-100'
+                  className={`flex h-10 items-center justify-center gap-2 rounded-lg text-sm font-semibold transition ${
+                    !isMeeting ? 'bg-zinc-50 text-zinc-950 shadow-sm' : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-100'
                   }`}
                 >
                   <SparkIcon />
@@ -207,8 +202,8 @@ export default function QuickCapturePage({ initialType = 'note' }) {
                     setError('');
                     setMessage('');
                   }}
-                  className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
-                    isMeeting ? 'bg-zinc-50 text-zinc-950 shadow-sm' : 'text-zinc-400 hover:text-zinc-100'
+                  className={`flex h-10 items-center justify-center gap-2 rounded-lg text-sm font-semibold transition ${
+                    isMeeting ? 'bg-zinc-50 text-zinc-950 shadow-sm' : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-100'
                   }`}
                 >
                   <CalendarIcon />
@@ -217,14 +212,14 @@ export default function QuickCapturePage({ initialType = 'note' }) {
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4 px-5 py-4">
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
+            <form id="quick-capture-form" onSubmit={handleSubmit} className="mt-4 space-y-4">
+              <div>
                 <FieldLabel>Workspace</FieldLabel>
                 <select
                   value={workspaceId}
                   onChange={(event) => setWorkspaceId(event.target.value)}
                   disabled={loading || workspaces.length === 0}
-                  className="w-full rounded-xl border border-zinc-700 bg-[#08111f] px-3 py-2.5 text-sm text-zinc-100 outline-none transition focus:border-emerald-400"
+                  className="h-11 w-full rounded-xl border border-zinc-700 bg-[#0a111c] px-3 text-sm font-medium text-zinc-100 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/15"
                 >
                   {workspaces.length === 0 ? (
                     <option value="">No workspaces available</option>
@@ -237,12 +232,12 @@ export default function QuickCapturePage({ initialType = 'note' }) {
                     ))
                   )}
                 </select>
-                <p className="mt-2 text-xs text-zinc-500">
+                <p className="mt-2 truncate text-xs text-zinc-500">
                   {activeWorkspace ? `Saving to ${activeWorkspace.name}` : 'Pick where this should go.'}
                 </p>
               </div>
 
-              <div className="space-y-4">
+              <div className="grid gap-4">
                 <label className="block">
                   <FieldLabel>Title</FieldLabel>
                   <input
@@ -255,7 +250,7 @@ export default function QuickCapturePage({ initialType = 'note' }) {
                         : setNoteForm((prev) => ({ ...prev, title: event.target.value }))
                     }
                     placeholder={isMeeting ? 'Weekly planning, client review, product sync' : 'Sprint ideas, launch checklist, call notes'}
-                    className="w-full rounded-xl border border-zinc-700 bg-[#08111f] px-3 py-2.5 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-500 focus:border-emerald-400"
+                    className="h-11 w-full rounded-xl border border-zinc-700 bg-[#0a111c] px-3 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-500 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/15"
                   />
                 </label>
 
@@ -268,9 +263,9 @@ export default function QuickCapturePage({ initialType = 'note' }) {
                         ? setMeetingForm((prev) => ({ ...prev, description: event.target.value }))
                         : setNoteForm((prev) => ({ ...prev, content: event.target.value }))
                     }
-                    rows={isMeeting ? 3 : 5}
+                    rows={isMeeting ? 4 : 6}
                     placeholder={isMeeting ? 'Agenda, links, or prep notes' : 'Write the note body here'}
-                    className="w-full resize-none rounded-xl border border-zinc-700 bg-[#08111f] px-3 py-3 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-500 focus:border-emerald-400"
+                    className="w-full resize-none rounded-xl border border-zinc-700 bg-[#0a111c] px-3 py-3 text-sm leading-6 text-zinc-100 outline-none transition placeholder:text-zinc-500 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/15"
                   />
                 </label>
 
@@ -283,7 +278,7 @@ export default function QuickCapturePage({ initialType = 'note' }) {
                         required
                         value={meetingForm.start_time}
                         onChange={(event) => setMeetingForm((prev) => ({ ...prev, start_time: event.target.value }))}
-                        className="w-full rounded-xl border border-zinc-700 bg-[#08111f] px-3 py-2.5 text-sm text-zinc-100 outline-none transition focus:border-emerald-400"
+                        className="h-11 w-full rounded-xl border border-zinc-700 bg-[#0a111c] px-3 text-sm text-zinc-100 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/15"
                       />
                     </label>
                     <label className="block">
@@ -292,7 +287,7 @@ export default function QuickCapturePage({ initialType = 'note' }) {
                         type="datetime-local"
                         value={meetingForm.end_time}
                         onChange={(event) => setMeetingForm((prev) => ({ ...prev, end_time: event.target.value }))}
-                        className="w-full rounded-xl border border-zinc-700 bg-[#08111f] px-3 py-2.5 text-sm text-zinc-100 outline-none transition focus:border-emerald-400"
+                        className="h-11 w-full rounded-xl border border-zinc-700 bg-[#0a111c] px-3 text-sm text-zinc-100 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/15"
                       />
                     </label>
                   </div>
@@ -308,7 +303,7 @@ export default function QuickCapturePage({ initialType = 'note' }) {
                           aria-label={`Set note color to ${color.label}`}
                           title={color.label}
                           className={`h-8 w-8 rounded-full border transition ${
-                            noteForm.color === color.value ? 'scale-110 border-zinc-50' : 'border-zinc-700 hover:border-zinc-400'
+                            noteForm.color === color.value ? 'scale-110 border-zinc-50 ring-2 ring-emerald-300/50' : 'border-zinc-700 hover:border-zinc-400'
                           }`}
                           style={{ backgroundColor: color.value }}
                         />
@@ -323,32 +318,30 @@ export default function QuickCapturePage({ initialType = 'note' }) {
                   {error || message}
                 </div>
               )}
-
-              <div className="flex items-center justify-between gap-3 border-t border-zinc-800 pt-4">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-zinc-300">{user?.display_name || 'Cove'}</p>
-                  <p className="text-xs text-zinc-500">Press Esc to close</p>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => window.close()}
-                    className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-300 transition hover:border-zinc-600 hover:text-zinc-100"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={saving || loading || !workspaceId}
-                    className="rounded-xl bg-emerald-400 px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-emerald-300 disabled:opacity-50"
-                  >
-                    {saving ? 'Saving...' : isMeeting ? 'Create meeting' : 'Create note'}
-                  </button>
-                </div>
-              </div>
             </form>
           </div>
-        </div>
+
+          <footer className="flex items-center justify-between gap-3 border-t border-zinc-800 bg-[#11141b] px-5 py-4">
+            <p className="min-w-0 truncate text-sm font-medium text-zinc-400">{user?.display_name || 'Cove'}</p>
+            <div className="flex shrink-0 gap-2">
+              <button
+                type="button"
+                onClick={() => window.close()}
+                className="h-10 rounded-xl border border-zinc-700 bg-zinc-900 px-4 text-sm font-medium text-zinc-300 transition hover:border-zinc-600 hover:bg-zinc-800 hover:text-zinc-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="quick-capture-form"
+                disabled={saving || loading || !workspaceId}
+                className="h-10 rounded-xl bg-emerald-400 px-4 text-sm font-semibold text-zinc-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : isMeeting ? 'Create meeting' : 'Create note'}
+              </button>
+            </div>
+          </footer>
+        </section>
       </div>
     </div>
   );

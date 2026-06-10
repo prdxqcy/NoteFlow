@@ -37,6 +37,7 @@
     "directories": {
       "output": "release"
     },
+    "icon": "public/icon-512.png",
     "files": [
       "dist/**/*",
       "electron/**/*",
