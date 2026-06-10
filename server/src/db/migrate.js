@@ -98,6 +98,11 @@ async function migrate() {
     `);
 
     await client.query(`
+      ALTER TABLE notes ADD COLUMN IF NOT EXISTS position_x INTEGER;
+      ALTER TABLE notes ADD COLUMN IF NOT EXISTS position_y INTEGER;
+    `);
+
+    await client.query(`
       WITH ranked_notes AS (
         SELECT id, ROW_NUMBER() OVER (
           PARTITION BY workspace_id

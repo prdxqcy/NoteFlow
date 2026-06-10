@@ -11,6 +11,17 @@ const NOTE_COLORS = [
   { value: '#ede9fe', label: 'Violet' },
 ];
 
+function findOpenDesktopPosition(occupied) {
+  for (let slot = 0; slot < 1000; slot += 1) {
+    const candidate = { x: (slot % 3) * 336, y: Math.floor(slot / 3) * 360 };
+    const overlaps = occupied.some((position) =>
+      Math.abs(position.x - candidate.x) < 320 && Math.abs(position.y - candidate.y) < 340
+    );
+    if (!overlaps) return candidate;
+  }
+  return { x: 0, y: occupied.length * 360 };
+}
+
 function TrashIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
@@ -115,10 +126,10 @@ function ScreenshotGroup({ images, onDeleteImage }) {
 
 function NoteCard({
   note,
+  isMoving,
   isMergeTarget,
   desktopMergeEnabled,
-  onMergeDragStart,
-  onMergeDragEnd,
+  onMoveStart,
   onUpdate,
   onDelete,
   onAddImage,
@@ -180,11 +191,19 @@ function NoteCard({
       className={`group relative flex flex-col gap-2 rounded-2xl border bg-white p-4 shadow-sm transition-all hover:shadow-md dark:bg-white dark:shadow-lg dark:shadow-black/45 ${
         isImageDragging
           ? 'border-blue-500 ring-4 ring-blue-500/20 dark:border-blue-400'
-          : isMergeTarget
-            ? 'border-violet-500 ring-4 ring-violet-500/25 dark:border-violet-400'
+          : isMoving
+            ? 'border-amber-500 shadow-xl ring-4 ring-amber-500/20 dark:border-amber-400'
+            : isMergeTarget
+              ? 'border-violet-500 ring-4 ring-violet-500/25 dark:border-violet-400'
             : 'border-zinc-200 dark:border-zinc-300'
       }`}
       style={{ background: noteColor === '#ffffff' ? undefined : `${noteColor}55` }}
+      onPointerDown={(e) => {
+        if (desktopMergeEnabled && !e.target.closest('input, textarea, button, a')) {
+          clearTimeout(saveTimer.current);
+          onMoveStart(note.id, e, { title, content });
+        }
+      }}
       onDragEnter={(e) => {
         e.preventDefault();
         if (e.dataTransfer.types.includes('Files')) setIsImageDragging(true);
@@ -217,18 +236,14 @@ function NoteCard({
       <div className="flex min-w-0 items-start gap-2">
         <button
           type="button"
-          draggable={desktopMergeEnabled}
-          onDragStart={(e) => {
+          onPointerDown={(e) => {
+            e.stopPropagation();
             clearTimeout(saveTimer.current);
-            onUpdate(note.id, { title, content });
-            e.dataTransfer.effectAllowed = 'link';
-            e.dataTransfer.setData('application/x-cove-note', note.id);
-            onMergeDragStart(note.id);
+            onMoveStart(note.id, e, { title, content });
           }}
-          onDragEnd={onMergeDragEnd}
-          aria-label="Drag note to merge"
-          title="Drag onto another note to merge"
-          className={`mt-0.5 cursor-grab rounded p-0.5 text-zinc-400 transition-opacity hover:text-zinc-700 active:cursor-grabbing dark:text-zinc-400 dark:hover:text-zinc-700 ${
+          aria-label="Move note"
+          title="Move note or place over another note to merge"
+          className={`mt-0.5 touch-none cursor-grab rounded p-0.5 text-zinc-400 transition-opacity hover:text-zinc-700 active:cursor-grabbing dark:text-zinc-400 dark:hover:text-zinc-700 ${
             desktopMergeEnabled ? 'hidden lg:block lg:opacity-0 lg:group-hover:opacity-100 lg:focus:opacity-100' : 'hidden'
           }`}
         >
@@ -359,8 +374,11 @@ export default function NotesList({
 }) {
   const [query, setQuery] = useState('');
   const [desktopMergeEnabled, setDesktopMergeEnabled] = useState(false);
-  const [draggedNoteId, setDraggedNoteId] = useState('');
+  const [positions, setPositions] = useState({});
+  const [movingNoteId, setMovingNoteId] = useState('');
   const [mergeTargetId, setMergeTargetId] = useState('');
+  const boardRef = useRef(null);
+  const dragRef = useRef(null);
 
   const filteredNotes = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -386,18 +404,91 @@ export default function NotesList({
     };
   }, []);
 
-  async function handleMergeDrop(target) {
-    const source = notes.find((note) => note.id === draggedNoteId);
-    setDraggedNoteId('');
-    setMergeTargetId('');
-    if (
-      source &&
-      source.id !== target.id &&
-      window.confirm(`Merge "${source.title || 'Untitled'}" into "${target.title || 'Untitled'}"? The dragged note will be removed.`)
-    ) {
-      await onMerge(source.id, target.id);
+  useEffect(() => {
+    if (!desktopMergeEnabled) return;
+    setPositions((current) => {
+      const next = { ...current };
+      const occupied = Object.values(next);
+      filteredNotes.forEach((note) => {
+        if (next[note.id]) return;
+        next[note.id] = Number.isFinite(note.position_x) && Number.isFinite(note.position_y)
+          ? { x: note.position_x, y: note.position_y }
+          : findOpenDesktopPosition(occupied);
+        occupied.push(next[note.id]);
+      });
+      return next;
+    });
+  }, [desktopMergeEnabled, filteredNotes]);
+
+  useEffect(() => {
+    if (!desktopMergeEnabled) return undefined;
+
+    function handlePointerMove(e) {
+      const drag = dragRef.current;
+      if (!drag || drag.pointerId !== e.pointerId) return;
+      const position = {
+        x: Math.max(0, Math.round(drag.originX + e.clientX - drag.startX)),
+        y: Math.max(0, Math.round(drag.originY + e.clientY - drag.startY)),
+      };
+      drag.position = position;
+      setPositions((current) => ({ ...current, [drag.id]: position }));
+
+      const target = [...boardRef.current.querySelectorAll('[data-note-id]')].find((element) => {
+        if (element.dataset.noteId === drag.id) return false;
+        const rect = element.getBoundingClientRect();
+        return e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+      });
+      drag.mergeTargetId = target?.dataset.noteId || '';
+      setMergeTargetId(drag.mergeTargetId);
     }
+
+    async function handlePointerUp(e) {
+      const drag = dragRef.current;
+      if (!drag || drag.pointerId !== e.pointerId) return;
+      dragRef.current = null;
+      setMovingNoteId('');
+      setMergeTargetId('');
+      const position = drag.position || { x: drag.originX, y: drag.originY };
+      await onUpdate(drag.id, { ...drag.draft, position_x: position.x, position_y: position.y });
+
+      const source = notes.find((note) => note.id === drag.id);
+      const target = notes.find((note) => note.id === drag.mergeTargetId);
+      if (
+        target &&
+        window.confirm(`Merge "${source.title || 'Untitled'}" into "${target.title || 'Untitled'}"? The moved note will be removed.`)
+      ) {
+        await onMerge(source.id, target.id);
+      }
+    }
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, [desktopMergeEnabled, notes, onMerge, onUpdate]);
+
+  function handleMoveStart(noteId, event, draft) {
+    if (!desktopMergeEnabled || query.trim()) return;
+    event.preventDefault();
+    const position = positions[noteId] || { x: 0, y: 0 };
+    dragRef.current = {
+      id: noteId,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: position.x,
+      originY: position.y,
+      draft,
+    };
+    setMovingNoteId(noteId);
   }
+
+  const boardSize = useMemo(() => ({
+    width: Math.max(1100, ...filteredNotes.map((note) => (positions[note.id]?.x || 0) + 360)),
+    height: Math.max(700, ...filteredNotes.map((note) => (positions[note.id]?.y || 0) + 620)),
+  }), [filteredNotes, positions]);
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -419,7 +510,7 @@ export default function NotesList({
           </button>
         </div>
       </header>
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+      <div className="flex-1 overflow-auto p-4 sm:p-6">
         {filteredNotes.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-24 text-zinc-600 dark:text-zinc-300">
             {notes.length === 0 ? (
@@ -441,34 +532,29 @@ export default function NotesList({
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          <div
+            ref={boardRef}
+            className={desktopMergeEnabled
+              ? 'relative rounded-2xl bg-[radial-gradient(circle,_rgba(113,113,122,0.16)_1px,_transparent_1px)] [background-size:24px_24px]'
+              : 'grid grid-cols-1 items-start gap-4 md:grid-cols-2'}
+            style={desktopMergeEnabled ? { width: boardSize.width, height: boardSize.height } : undefined}
+          >
             {filteredNotes.map((note) => (
               <div
                 key={note.id}
-                onDragOver={(e) => {
-                  if (!desktopMergeEnabled || !draggedNoteId || draggedNoteId === note.id) return;
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = 'link';
-                  setMergeTargetId(note.id);
-                }}
-                onDragLeave={(e) => {
-                  if (!e.currentTarget.contains(e.relatedTarget)) setMergeTargetId('');
-                }}
-                onDrop={(e) => {
-                  if (!desktopMergeEnabled || !draggedNoteId || draggedNoteId === note.id) return;
-                  e.preventDefault();
-                  handleMergeDrop(note);
-                }}
+                data-note-id={note.id}
+                className={desktopMergeEnabled ? 'absolute w-[320px]' : ''}
+                style={desktopMergeEnabled ? {
+                  transform: `translate3d(${positions[note.id]?.x || 0}px, ${positions[note.id]?.y || 0}px, 0)`,
+                  zIndex: movingNoteId === note.id ? 20 : note.is_pinned ? 5 : 1,
+                } : undefined}
               >
                 <NoteCard
                   note={note}
+                  isMoving={movingNoteId === note.id}
                   isMergeTarget={mergeTargetId === note.id}
                   desktopMergeEnabled={desktopMergeEnabled && !query.trim()}
-                  onMergeDragStart={setDraggedNoteId}
-                  onMergeDragEnd={() => {
-                    setDraggedNoteId('');
-                    setMergeTargetId('');
-                  }}
+                  onMoveStart={handleMoveStart}
                   onUpdate={onUpdate}
                   onDelete={onDelete}
                   onAddImage={onAddImage}
