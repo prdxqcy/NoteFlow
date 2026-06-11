@@ -169,6 +169,22 @@ async function migrate() {
     `);
 
     await client.query(`
+      CREATE TABLE IF NOT EXISTS note_links (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+        source_note_id UUID NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+        target_note_id UUID NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+        created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        CONSTRAINT note_links_distinct_notes CHECK (source_note_id <> target_note_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS note_links_workspace_idx ON note_links(workspace_id);
+      CREATE INDEX IF NOT EXISTS note_links_source_idx ON note_links(source_note_id);
+      CREATE INDEX IF NOT EXISTS note_links_target_idx ON note_links(target_note_id);
+    `);
+
+    await client.query(`
       ALTER TABLE workspace_members
       ADD COLUMN IF NOT EXISTS permissions JSONB NOT NULL DEFAULT '{}';
 

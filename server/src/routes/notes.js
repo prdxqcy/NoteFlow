@@ -52,6 +52,21 @@ async function getNoteWithImages(noteId) {
          (
            SELECT json_agg(
              json_build_object(
+               'id', nl.id,
+               'source_note_id', nl.source_note_id,
+               'target_note_id', nl.target_note_id
+             )
+             ORDER BY nl.created_at
+           )
+           FROM note_links nl
+           WHERE nl.source_note_id = n.id OR nl.target_note_id = n.id
+         ),
+         '[]'
+       ) AS links,
+       COALESCE(
+         (
+           SELECT json_agg(
+             json_build_object(
                'id', ns.id,
                'title', ns.title,
                'content', ns.content,
@@ -100,6 +115,21 @@ router.get('/workspace/:workspaceId', async (req, res) => {
            ),
            '[]'
          ) AS images,
+         COALESCE(
+           (
+             SELECT json_agg(
+               json_build_object(
+                 'id', nl.id,
+                 'source_note_id', nl.source_note_id,
+                 'target_note_id', nl.target_note_id
+               )
+               ORDER BY nl.created_at
+             )
+             FROM note_links nl
+             WHERE nl.source_note_id = n.id OR nl.target_note_id = n.id
+           ),
+           '[]'
+         ) AS links,
          COALESCE(
            (
              SELECT json_agg(
@@ -158,6 +188,86 @@ router.put('/workspace/:workspaceId/order', async (req, res) => {
     res.status(400).json({ error: 'Could not save note order' });
   } finally {
     client.release();
+  }
+});
+
+router.post('/:id/links', async (req, res) => {
+  const { target_id } = req.body;
+  if (!target_id || target_id === req.params.id) {
+    return res.status(400).json({ error: 'Choose two different notes' });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      'SELECT * FROM notes WHERE id = ANY($1::uuid[])',
+      [[req.params.id, target_id]]
+    );
+    const source = rows.find((note) => note.id === req.params.id);
+    const target = rows.find((note) => note.id === target_id);
+    if (!source || !target) return res.status(404).json({ error: 'Note not found' });
+    if (source.workspace_id !== target.workspace_id) {
+      return res.status(400).json({ error: 'Notes must be in the same workspace' });
+    }
+    if (
+      (source.is_private && source.created_by !== req.user.id) ||
+      (target.is_private && target.created_by !== req.user.id)
+    ) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    if (!(await assertMember(source.workspace_id, req.user.id))) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    if (!(await assertPermission(source.workspace_id, req.user.id, 'edit_notes'))) {
+      return res.status(403).json({ error: 'You do not have permission to connect notes' });
+    }
+
+    const { rows: linkRows } = await pool.query(
+      `WITH existing AS (
+         SELECT id, source_note_id, target_note_id
+         FROM note_links
+         WHERE source_note_id = $2 AND target_note_id = $3
+       ), inserted AS (
+         INSERT INTO note_links (workspace_id, source_note_id, target_note_id, created_by)
+         SELECT $1, $2, $3, $4
+         WHERE NOT EXISTS (SELECT 1 FROM existing)
+         RETURNING id, source_note_id, target_note_id
+       )
+       SELECT * FROM inserted
+       UNION ALL
+       SELECT * FROM existing
+       LIMIT 1`,
+      [source.workspace_id, source.id, target.id, req.user.id]
+    );
+    res.status(201).json(linkRows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not create note connection' });
+  }
+});
+
+router.delete('/:noteId/links/:linkId', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM notes WHERE id = $1', [req.params.noteId]);
+    const note = rows[0];
+    if (!note) return res.status(404).json({ error: 'Note not found' });
+    if (!(await assertMember(note.workspace_id, req.user.id))) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    if (!(await assertPermission(note.workspace_id, req.user.id, 'edit_notes'))) {
+      return res.status(403).json({ error: 'You do not have permission to edit notes' });
+    }
+    const result = await pool.query(
+      `DELETE FROM note_links
+       WHERE id = $1
+         AND workspace_id = $2
+         AND (source_note_id = $3 OR target_note_id = $3)`,
+      [req.params.linkId, note.workspace_id, note.id]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: 'Connection not found' });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Could not delete note connection' });
   }
 });
 
@@ -261,6 +371,28 @@ router.post('/:targetId/merge', async (req, res) => {
            context_updated_at = COALESCE(context_updated_at, $4)
        WHERE note_id = $5`,
       [target.id, source.title, source.content, source.updated_at, source.id]
+    );
+    await client.query(
+      `UPDATE note_links
+       SET source_note_id = $1
+       WHERE source_note_id = $2`,
+      [target.id, source.id]
+    );
+    await client.query(
+      `UPDATE note_links
+       SET target_note_id = $1
+       WHERE target_note_id = $2`,
+      [target.id, source.id]
+    );
+    await client.query(
+      'DELETE FROM note_links WHERE source_note_id = target_note_id',
+    );
+    await client.query(
+      `DELETE FROM note_links duplicate
+       USING note_links keep
+       WHERE duplicate.id <> keep.id
+         AND duplicate.source_note_id = keep.source_note_id
+         AND duplicate.target_note_id = keep.target_note_id`
     );
     await client.query(
       'UPDATE notes SET title = $1, content = $2 WHERE id = $3',

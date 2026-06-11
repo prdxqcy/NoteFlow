@@ -93,6 +93,10 @@ export const api = {
   updateNote: (id, body) => request(`/notes/${id}`, { method: 'PATCH', body }),
   updateNoteSection: (noteId, sectionId, body) =>
     request(`/notes/${noteId}/sections/${sectionId}`, { method: 'PATCH', body }),
+  createNoteLink: (noteId, target_id) =>
+    request(`/notes/${noteId}/links`, { method: 'POST', body: { target_id } }),
+  deleteNoteLink: (noteId, linkId) =>
+    request(`/notes/${noteId}/links/${linkId}`, { method: 'DELETE' }),
   deleteNote: (id) => request(`/notes/${id}`, { method: 'DELETE' }),
   reorderNotes: (workspaceId, note_ids) =>
     request(`/notes/workspace/${workspaceId}/order`, { method: 'PUT', body: { note_ids } }),

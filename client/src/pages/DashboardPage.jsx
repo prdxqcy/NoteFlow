@@ -315,6 +315,26 @@ export default function DashboardPage() {
     setNotes((prev) => prev.filter((n) => n.id !== id));
   }, []);
 
+  const handleCreateNoteLink = useCallback(async (sourceId, targetId) => {
+    const link = await api.createNoteLink(sourceId, targetId);
+    setNotes((prev) => prev.map((note) => (
+      note.id === sourceId || note.id === targetId
+        ? {
+            ...note,
+            links: [...(note.links || []).filter((item) => item.id !== link.id), link],
+          }
+        : note
+    )));
+  }, []);
+
+  const handleDeleteNoteLink = useCallback(async (noteId, linkId) => {
+    await api.deleteNoteLink(noteId, linkId);
+    setNotes((prev) => prev.map((note) => ({
+      ...note,
+      links: (note.links || []).filter((link) => link.id !== linkId),
+    })));
+  }, []);
+
   const handleUpdateNoteSection = useCallback(async (noteId, sectionId, patch) => {
     const updated = await api.updateNoteSection(noteId, sectionId, patch);
     setNotes((prev) => prev.map((note) => (
@@ -556,6 +576,8 @@ export default function DashboardPage() {
               onCreate={handleCreateNote}
               onUpdate={handleUpdateNote}
               onUpdateSection={handleUpdateNoteSection}
+              onCreateLink={handleCreateNoteLink}
+              onDeleteLink={handleDeleteNoteLink}
               onDelete={handleDeleteNote}
               onAddImage={handleAddNoteImage}
               onDeleteImage={handleDeleteNoteImage}

@@ -25,6 +25,12 @@ function findOpenDesktopPosition(occupied) {
 const DEFAULT_NOTE_SIZE = { width: 320, height: 360 };
 const MIN_NOTE_SIZE = { width: 260, height: 180 };
 const MAX_NOTE_SIZE = { width: 760, height: 900 };
+const MIN_BOARD_SCALE = 0.5;
+const MAX_BOARD_SCALE = 1.8;
+
+function clampBoardScale(value) {
+  return Math.min(MAX_BOARD_SCALE, Math.max(MIN_BOARD_SCALE, value));
+}
 
 function getNoteSize(note) {
   const width = Number.isFinite(note.note_width) ? note.note_width : DEFAULT_NOTE_SIZE.width;
@@ -57,6 +63,28 @@ function GripIcon() {
       <circle cx="14" cy="15" r="1.25" />
     </svg>
   );
+}
+
+function LinkIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 7h6a4 4 0 0 1 0 8h-2" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 17H9a4 4 0 0 1 0-8h2" />
+    </svg>
+  );
+}
+
+function getLinkAnchor(noteId, direction, positions, sizes) {
+  const position = positions[noteId] || { x: 0, y: 0 };
+  const size = sizes[noteId] || DEFAULT_NOTE_SIZE;
+  return direction === 'right'
+    ? { x: position.x + size.width, y: position.y + (size.height / 2) }
+    : { x: position.x, y: position.y + (size.height / 2) };
+}
+
+function getLinkPath(start, end) {
+  const curve = Math.max(48, Math.abs(end.x - start.x) * 0.35);
+  return `M ${start.x} ${start.y} C ${start.x + curve} ${start.y}, ${end.x - curve} ${end.y}, ${end.x} ${end.y}`;
 }
 
 function NoteImage({ image, onDelete, onAddAnnotation, onDeleteAnnotation }) {
@@ -219,7 +247,10 @@ function NoteCard({
   isMoving,
   isMergeTarget,
   desktopMergeEnabled,
+  isLinking,
   onMoveStart,
+  onLinkStart,
+  onZoomToNote,
   onUpdate,
   onUpdateSection,
   onDelete,
@@ -236,6 +267,7 @@ function NoteCard({
   const [imageError, setImageError] = useState('');
   const saveTimer = useRef(null);
   const fileInput = useRef(null);
+  const zoomIntentRef = useRef(null);
   const noteColor = note.color || '#ffffff';
   const imageGroups = useMemo(() => {
     const groups = new Map();
@@ -257,7 +289,10 @@ function NoteCard({
 
   useEffect(() => setTitle(note.title), [note.title]);
   useEffect(() => setContent(note.content), [note.content]);
-  useEffect(() => () => clearTimeout(saveTimer.current), []);
+  useEffect(() => () => {
+    clearTimeout(saveTimer.current);
+    zoomIntentRef.current = null;
+  }, []);
 
   function scheduleUpdate(patch) {
     clearTimeout(saveTimer.current);
@@ -279,6 +314,38 @@ function NoteCard({
     } finally {
       setUploading(false);
       if (fileInput.current) fileInput.current.value = '';
+    }
+  }
+
+  function maybeZoomIntoEditable(target) {
+    if (!onZoomToNote) return false;
+    return onZoomToNote(note.id, target);
+  }
+
+  function beginZoomIntent(event) {
+    zoomIntentRef.current = {
+      target: event.currentTarget,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+    };
+  }
+
+  function cancelZoomIntent(event) {
+    const zoomIntent = zoomIntentRef.current;
+    if (!zoomIntent || zoomIntent.pointerId !== event.pointerId) return;
+    const moved = Math.hypot(event.clientX - zoomIntent.startX, event.clientY - zoomIntent.startY);
+    if (moved > 6) {
+      zoomIntentRef.current = null;
+    }
+  }
+
+  function commitZoomIntent(event) {
+    const zoomIntent = zoomIntentRef.current;
+    zoomIntentRef.current = null;
+    if (!zoomIntent || zoomIntent.pointerId !== event.pointerId) return;
+    if (maybeZoomIntoEditable(zoomIntent.target)) {
+      event.preventDefault();
     }
   }
 
@@ -349,14 +416,33 @@ function NoteCard({
           className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-zinc-900 dark:placeholder:text-zinc-400"
           value={title}
           placeholder="Untitled"
+          onPointerDown={beginZoomIntent}
+          onPointerMove={cancelZoomIntent}
+          onPointerUp={commitZoomIntent}
+          onPointerCancel={() => { zoomIntentRef.current = null; }}
           onChange={(e) => {
             setTitle(e.target.value);
             scheduleUpdate({ title: e.target.value });
           }}
         />
+        <button
+          type="button"
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            clearTimeout(saveTimer.current);
+            onLinkStart(note.id, e);
+          }}
+          aria-label="Connect note"
+          title="Connect note"
+          className={`mt-0.5 hidden h-7 w-7 shrink-0 items-center justify-center rounded-full text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-700 dark:text-zinc-500 dark:hover:bg-black/5 dark:hover:text-zinc-800 lg:flex ${
+            desktopMergeEnabled ? 'lg:opacity-0 lg:group-hover:opacity-100 lg:focus:opacity-100' : ''
+          } ${isLinking ? 'bg-emerald-100 text-emerald-700 opacity-100 dark:bg-emerald-200/80 dark:text-emerald-900' : ''}`}
+        >
+          <LinkIcon />
+        </button>
       </div>
-      <div className="sticky top-0 z-20 flex w-full shrink-0 items-center justify-end gap-1 overflow-visible rounded-lg bg-white/70 py-1 backdrop-blur dark:bg-white/70">
-          <div className="flex shrink-0 items-center gap-1 rounded-full bg-white/85 px-1.5 py-1 shadow-sm ring-1 ring-zinc-200 backdrop-blur dark:bg-white dark:ring-zinc-300">
+      <div className="sticky top-0 z-20 flex w-full shrink-0 items-center justify-end gap-1 overflow-visible py-1">
+          <div className="flex shrink-0 items-center gap-1 rounded-full bg-white/85 px-1.5 py-1 shadow-sm ring-1 ring-zinc-200 dark:bg-white dark:ring-zinc-300">
             {NOTE_COLORS.map((color) => (
               <button
                 key={color.value}
@@ -405,6 +491,10 @@ function NoteCard({
           }`}
           value={content}
           placeholder="Write something..."
+          onPointerDown={beginZoomIntent}
+          onPointerMove={cancelZoomIntent}
+          onPointerUp={commitZoomIntent}
+          onPointerCancel={() => { zoomIntentRef.current = null; }}
           onChange={(e) => {
             setContent(e.target.value);
             scheduleUpdate({ content: e.target.value });
@@ -511,6 +601,8 @@ export default function NotesList({
   onCreate,
   onUpdate,
   onUpdateSection,
+  onCreateLink,
+  onDeleteLink,
   onDelete,
   onAddImage,
   onDeleteImage,
@@ -525,12 +617,17 @@ export default function NotesList({
   const [movingNoteId, setMovingNoteId] = useState('');
   const [resizingNoteId, setResizingNoteId] = useState('');
   const [mergeTargetId, setMergeTargetId] = useState('');
+  const [linkingNoteId, setLinkingNoteId] = useState('');
+  const [linkTargetId, setLinkTargetId] = useState('');
+  const [draftLinkPoint, setDraftLinkPoint] = useState(null);
+  const [boardScale, setBoardScale] = useState(1);
   const [isPanning, setIsPanning] = useState(false);
   const boardRef = useRef(null);
   const scrollerRef = useRef(null);
   const dragRef = useRef(null);
   const resizeRef = useRef(null);
   const panRef = useRef(null);
+  const linkRef = useRef(null);
 
   const filteredNotes = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -545,6 +642,24 @@ export default function NotesList({
         return `${note.title} ${note.content} ${note.author_name || ''}`.toLowerCase().includes(term);
       });
   }, [notes, query]);
+
+  const filteredNoteIds = useMemo(() => new Set(filteredNotes.map((note) => note.id)), [filteredNotes]);
+  const boardLinks = useMemo(() => {
+    const unique = new Map();
+    filteredNotes.forEach((note) => {
+      (note.links || []).forEach((link) => {
+        if (!filteredNoteIds.has(link.source_note_id) || !filteredNoteIds.has(link.target_note_id)) return;
+        if (!unique.has(link.id)) unique.set(link.id, link);
+      });
+    });
+    return [...unique.values()];
+  }, [filteredNotes, filteredNoteIds]);
+
+  useEffect(() => {
+    if (!desktopMergeEnabled) {
+      setBoardScale(1);
+    }
+  }, [desktopMergeEnabled]);
 
   useEffect(() => {
     const media = window.matchMedia('(min-width: 1024px)');
@@ -591,6 +706,22 @@ export default function NotesList({
 
     function handlePointerMove(e) {
       const pan = panRef.current;
+      const link = linkRef.current;
+      if (link && link.pointerId === e.pointerId) {
+        const boardRect = boardRef.current?.getBoundingClientRect();
+        if (!boardRect) return;
+        setDraftLinkPoint({
+          x: (e.clientX - boardRect.left + scrollerRef.current.scrollLeft) / boardScale,
+          y: (e.clientY - boardRect.top + scrollerRef.current.scrollTop) / boardScale,
+        });
+        const target = [...boardRef.current.querySelectorAll('[data-note-id]')].find((element) => {
+          if (element.dataset.noteId === link.id) return false;
+          const rect = element.getBoundingClientRect();
+          return e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+        });
+        setLinkTargetId(target?.dataset.noteId || '');
+        return;
+      }
       if (pan && pan.pointerId === e.pointerId) {
         scrollerRef.current.scrollLeft = pan.scrollLeft - (e.clientX - pan.startX);
         scrollerRef.current.scrollTop = pan.scrollTop - (e.clientY - pan.startY);
@@ -602,10 +733,10 @@ export default function NotesList({
       if (resize && resize.pointerId === e.pointerId) {
         const nextSize = {
           width: resize.direction.includes('x')
-            ? Math.min(MAX_NOTE_SIZE.width, Math.max(MIN_NOTE_SIZE.width, Math.round(resize.originWidth + e.clientX - resize.startX)))
+            ? Math.min(MAX_NOTE_SIZE.width, Math.max(MIN_NOTE_SIZE.width, Math.round(resize.originWidth + ((e.clientX - resize.startX) / boardScale))))
             : resize.originWidth,
           height: resize.direction.includes('y')
-            ? Math.min(MAX_NOTE_SIZE.height, Math.max(MIN_NOTE_SIZE.height, Math.round(resize.originHeight + e.clientY - resize.startY)))
+            ? Math.min(MAX_NOTE_SIZE.height, Math.max(MIN_NOTE_SIZE.height, Math.round(resize.originHeight + ((e.clientY - resize.startY) / boardScale))))
             : resize.originHeight,
         };
         resize.size = nextSize;
@@ -615,8 +746,8 @@ export default function NotesList({
 
       if (!drag || drag.pointerId !== e.pointerId) return;
       const position = {
-        x: Math.max(0, Math.round(drag.originX + e.clientX - drag.startX)),
-        y: Math.max(0, Math.round(drag.originY + e.clientY - drag.startY)),
+        x: Math.max(0, Math.round(drag.originX + ((e.clientX - drag.startX) / boardScale))),
+        y: Math.max(0, Math.round(drag.originY + ((e.clientY - drag.startY) / boardScale))),
       };
       drag.position = position;
       setPositions((current) => ({ ...current, [drag.id]: position }));
@@ -632,6 +763,19 @@ export default function NotesList({
 
     async function handlePointerUp(e) {
       const pan = panRef.current;
+      const link = linkRef.current;
+      if (link && link.pointerId === e.pointerId) {
+        linkRef.current = null;
+        const sourceId = link.id;
+        const targetId = linkTargetId;
+        setLinkingNoteId('');
+        setLinkTargetId('');
+        setDraftLinkPoint(null);
+        if (targetId) {
+          await onCreateLink(sourceId, targetId);
+        }
+        return;
+      }
       if (pan && pan.pointerId === e.pointerId) {
         panRef.current = null;
         setIsPanning(false);
@@ -673,7 +817,7 @@ export default function NotesList({
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('pointercancel', handlePointerUp);
     };
-  }, [desktopMergeEnabled, notes, onMerge, onUpdate]);
+  }, [boardScale, desktopMergeEnabled, linkTargetId, notes, onCreateLink, onMerge, onUpdate]);
 
   function handleMoveStart(noteId, event, draft) {
     if (!desktopMergeEnabled || query.trim()) return;
@@ -708,8 +852,67 @@ export default function NotesList({
     setResizingNoteId(noteId);
   }
 
+  function handleLinkStart(noteId, event) {
+    if (!desktopMergeEnabled || query.trim()) return;
+    event.preventDefault();
+    const boardRect = boardRef.current?.getBoundingClientRect();
+    if (!boardRect) return;
+    linkRef.current = { id: noteId, pointerId: event.pointerId };
+    setLinkingNoteId(noteId);
+    setLinkTargetId('');
+    setDraftLinkPoint({
+      x: (event.clientX - boardRect.left + scrollerRef.current.scrollLeft) / boardScale,
+      y: (event.clientY - boardRect.top + scrollerRef.current.scrollTop) / boardScale,
+    });
+  }
+
+  function handleBoardZoom(nextScale) {
+    if (!desktopMergeEnabled) return;
+    setBoardScale(clampBoardScale(nextScale));
+  }
+
+  function centerNoteInView(noteId) {
+    const scroller = scrollerRef.current;
+    const noteElement = boardRef.current?.querySelector(`[data-note-id="${noteId}"]`);
+    if (!scroller || !noteElement) return;
+    const scrollerRect = scroller.getBoundingClientRect();
+    const noteRect = noteElement.getBoundingClientRect();
+    const targetLeft = Math.max(
+      0,
+      scroller.scrollLeft + (noteRect.left - scrollerRect.left) - ((scroller.clientWidth - noteRect.width) / 2)
+    );
+    const targetTop = Math.max(
+      0,
+      scroller.scrollTop + (noteRect.top - scrollerRect.top) - ((scroller.clientHeight - noteRect.height) / 2)
+    );
+    scroller.scrollTo({ left: targetLeft, top: targetTop, behavior: 'smooth' });
+  }
+
+  function handleZoomToNote(noteId, target) {
+    if (!desktopMergeEnabled || boardScale > MIN_BOARD_SCALE + 0.001) return false;
+    if (!target?.matches?.('input, textarea')) return false;
+    const nextScale = 1;
+    setBoardScale(nextScale);
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        centerNoteInView(noteId);
+        target.focus();
+      });
+    });
+    return true;
+  }
+
+  function handleBoardWheel(event) {
+    if (!desktopMergeEnabled) return;
+    if (!(event.ctrlKey || event.metaKey)) return;
+    event.preventDefault();
+    const delta = event.deltaY < 0 ? 0.1 : -0.1;
+    setBoardScale((current) => clampBoardScale(Number((current + delta).toFixed(2))));
+  }
+
   function handlePanStart(event) {
-    if (!desktopMergeEnabled || event.target !== event.currentTarget) return;
+    if (!desktopMergeEnabled || linkRef.current) return;
+    if (event.target.closest('[data-note-id]')) return;
     event.preventDefault();
     panRef.current = {
       pointerId: event.pointerId,
@@ -725,6 +928,10 @@ export default function NotesList({
     width: Math.max(1100, ...filteredNotes.map((note) => (positions[note.id]?.x || 0) + (sizes[note.id]?.width || DEFAULT_NOTE_SIZE.width) + 40)),
     height: Math.max(700, ...filteredNotes.map((note) => (positions[note.id]?.y || 0) + (sizes[note.id]?.height || DEFAULT_NOTE_SIZE.height) + 120)),
   }), [filteredNotes, positions, sizes]);
+  const scaledBoardSize = useMemo(() => ({
+    width: boardSize.width * boardScale,
+    height: boardSize.height * boardScale,
+  }), [boardScale, boardSize]);
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -746,7 +953,7 @@ export default function NotesList({
           </button>
         </div>
       </header>
-      <div ref={scrollerRef} className="flex-1 overflow-auto p-4 sm:p-6">
+      <div ref={scrollerRef} className="flex-1 overflow-auto p-4 sm:p-6" onWheel={handleBoardWheel}>
         {filteredNotes.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-24 text-zinc-600 dark:text-zinc-300">
             {notes.length === 0 ? (
@@ -768,45 +975,151 @@ export default function NotesList({
             )}
           </div>
         ) : (
-          <div
-            ref={boardRef}
-            className={desktopMergeEnabled
-              ? `relative bg-transparent bg-[radial-gradient(circle,_rgba(100,116,139,0.15)_1px,_transparent_1px)] [background-size:24px_24px] dark:bg-transparent dark:bg-[radial-gradient(circle,_rgba(148,163,184,0.14)_1px,_transparent_1px)] ${
-                  isPanning ? 'cursor-grabbing' : 'cursor-grab'
-                }`
-              : 'grid grid-cols-1 items-start gap-4 md:grid-cols-2'}
-            style={desktopMergeEnabled ? { width: boardSize.width, height: boardSize.height } : undefined}
-            onPointerDown={handlePanStart}
-          >
-            {filteredNotes.map((note) => (
-              <div
-                key={note.id}
-                data-note-id={note.id}
-                className={desktopMergeEnabled ? 'absolute' : ''}
-                style={desktopMergeEnabled ? {
-                  width: sizes[note.id]?.width || DEFAULT_NOTE_SIZE.width,
-                  height: sizes[note.id]?.height || DEFAULT_NOTE_SIZE.height,
-                  transform: `translate3d(${positions[note.id]?.x || 0}px, ${positions[note.id]?.y || 0}px, 0)`,
-                  zIndex: movingNoteId === note.id || resizingNoteId === note.id ? 20 : note.is_pinned ? 5 : 1,
-                } : undefined}
-              >
-                <NoteCard
-                  note={note}
-                  isMoving={movingNoteId === note.id}
-                  isMergeTarget={mergeTargetId === note.id}
-                  desktopMergeEnabled={desktopMergeEnabled && !query.trim()}
-                  onMoveStart={handleMoveStart}
-                  onResizeStart={handleResizeStart}
-                  onUpdate={onUpdate}
-                  onUpdateSection={onUpdateSection}
-                  onDelete={onDelete}
-                  onAddImage={onAddImage}
-                  onDeleteImage={onDeleteImage}
-                  onAddAnnotation={onAddAnnotation}
-                  onDeleteAnnotation={onDeleteAnnotation}
-                />
+          <div className="relative">
+            {desktopMergeEnabled && (
+              <div className="absolute right-3 top-3 z-30 flex items-center gap-1 rounded-full bg-white/92 p-1 shadow-sm ring-1 ring-zinc-200 backdrop-blur dark:bg-[#202c40]/92 dark:ring-slate-600">
+                <button
+                  type="button"
+                  onClick={() => handleBoardZoom(boardScale - 0.1)}
+                  aria-label="Zoom out"
+                  title="Zoom out"
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-[#344158] dark:hover:text-white"
+                >
+                  -
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBoardZoom(1)}
+                  aria-label="Reset zoom"
+                  title="Reset zoom"
+                  className="min-w-[3.25rem] rounded-full px-2 py-1 text-[11px] font-semibold text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-[#344158] dark:hover:text-white"
+                >
+                  {Math.round(boardScale * 100)}%
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBoardZoom(boardScale + 0.1)}
+                  aria-label="Zoom in"
+                  title="Zoom in"
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-[#344158] dark:hover:text-white"
+                >
+                  +
+                </button>
               </div>
-            ))}
+            )}
+            <div
+              ref={boardRef}
+              className={desktopMergeEnabled
+                ? `relative bg-transparent bg-[radial-gradient(circle,_rgba(100,116,139,0.15)_1px,_transparent_1px)] [background-size:24px_24px] dark:bg-transparent dark:bg-[radial-gradient(circle,_rgba(148,163,184,0.14)_1px,_transparent_1px)] ${
+                    isPanning ? 'cursor-grabbing' : 'cursor-grab'
+                  }`
+                : 'grid grid-cols-1 items-start gap-4 md:grid-cols-2'}
+              style={desktopMergeEnabled ? { width: scaledBoardSize.width, height: scaledBoardSize.height } : undefined}
+              onPointerDown={handlePanStart}
+            >
+              {desktopMergeEnabled && (
+                <div
+                  className="absolute left-0 top-0 origin-top-left"
+                  style={{ width: boardSize.width, height: boardSize.height, transform: `scale(${boardScale})` }}
+                >
+                  <svg className="pointer-events-none absolute inset-0 z-0 h-full w-full overflow-visible">
+                <defs>
+                  <marker id="note-link-arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+                    <path d="M0 0 L8 4 L0 8 Z" fill="#64748b" />
+                  </marker>
+                </defs>
+                {boardLinks.map((link) => {
+                  const sourceDirection = (positions[link.source_note_id]?.x || 0) <= (positions[link.target_note_id]?.x || 0) ? 'right' : 'left';
+                  const targetDirection = sourceDirection === 'right' ? 'left' : 'right';
+                  const start = getLinkAnchor(link.source_note_id, sourceDirection, positions, sizes);
+                  const end = getLinkAnchor(link.target_note_id, targetDirection, positions, sizes);
+                  return (
+                    <path
+                      key={link.id}
+                      d={getLinkPath(start, end)}
+                      className="pointer-events-auto cursor-pointer fill-none stroke-slate-400 stroke-[2.5] transition-colors hover:stroke-emerald-500"
+                      markerEnd="url(#note-link-arrow)"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        const confirmed = window.confirm('Delete this note connection?');
+                        if (confirmed) onDeleteLink(link.source_note_id, link.id);
+                      }}
+                    />
+                  );
+                })}
+                {linkingNoteId && draftLinkPoint && (() => {
+                  const direction = (positions[linkingNoteId]?.x || 0) <= draftLinkPoint.x ? 'right' : 'left';
+                  const start = getLinkAnchor(linkingNoteId, direction, positions, sizes);
+                  const end = linkTargetId
+                    ? getLinkAnchor(linkTargetId, direction === 'right' ? 'left' : 'right', positions, sizes)
+                    : draftLinkPoint;
+                  return (
+                    <path
+                      d={getLinkPath(start, end)}
+                      className="fill-none stroke-emerald-500 stroke-[2.5]"
+                      strokeDasharray={linkTargetId ? undefined : '7 5'}
+                      markerEnd="url(#note-link-arrow)"
+                    />
+                  );
+                })()}
+                  </svg>
+                  {filteredNotes.map((note) => (
+                    <div
+                      key={note.id}
+                      data-note-id={note.id}
+                      className="absolute z-10"
+                      style={{
+                        width: sizes[note.id]?.width || DEFAULT_NOTE_SIZE.width,
+                        height: sizes[note.id]?.height || DEFAULT_NOTE_SIZE.height,
+                        transform: `translate3d(${positions[note.id]?.x || 0}px, ${positions[note.id]?.y || 0}px, 0)`,
+                        zIndex: movingNoteId === note.id || resizingNoteId === note.id ? 20 : note.is_pinned ? 5 : 1,
+                      }}
+                    >
+                      <NoteCard
+                        note={note}
+                        isMoving={movingNoteId === note.id}
+                        isMergeTarget={mergeTargetId === note.id}
+                        isLinking={linkingNoteId === note.id}
+                        desktopMergeEnabled={desktopMergeEnabled && !query.trim()}
+                        onMoveStart={handleMoveStart}
+                        onLinkStart={handleLinkStart}
+                        onZoomToNote={handleZoomToNote}
+                        onResizeStart={handleResizeStart}
+                        onUpdate={onUpdate}
+                        onUpdateSection={onUpdateSection}
+                        onDelete={onDelete}
+                        onAddImage={onAddImage}
+                        onDeleteImage={onDeleteImage}
+                        onAddAnnotation={onAddAnnotation}
+                        onDeleteAnnotation={onDeleteAnnotation}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+              {!desktopMergeEnabled && filteredNotes.map((note) => (
+                <div key={note.id}>
+                  <NoteCard
+                    note={note}
+                    isMoving={movingNoteId === note.id}
+                    isMergeTarget={mergeTargetId === note.id}
+                    isLinking={linkingNoteId === note.id}
+                    desktopMergeEnabled={false}
+                    onMoveStart={handleMoveStart}
+                    onLinkStart={handleLinkStart}
+                    onZoomToNote={handleZoomToNote}
+                    onResizeStart={handleResizeStart}
+                    onUpdate={onUpdate}
+                    onUpdateSection={onUpdateSection}
+                    onDelete={onDelete}
+                    onAddImage={onAddImage}
+                    onDeleteImage={onDeleteImage}
+                    onAddAnnotation={onAddAnnotation}
+                    onDeleteAnnotation={onDeleteAnnotation}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

@@ -63,6 +63,11 @@ export default function Sidebar({
     { id: 'power', label: 'Power tools', paths: ICON_PATHS.power },
     { id: 'settings', label: 'Settings', paths: ICON_PATHS.settings },
   ];
+  const themeItems = [
+    { id: 'system', emoji: '💻', label: 'Auto theme' },
+    { id: 'light', emoji: '☀️', label: 'Light theme' },
+    { id: 'dark', emoji: '🌙', label: 'Dark theme' },
+  ];
 
   async function handleCreate(e) {
     e.preventDefault();
@@ -109,6 +114,21 @@ export default function Sidebar({
         <div className="min-w-0">
           <p className="text-base font-bold tracking-tight text-zinc-950 dark:text-white">Cove</p>
           <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400">Workspace</p>
+        </div>
+      </div>
+
+      <div className="border-b border-zinc-200 px-4 py-3 dark:border-slate-700">
+        <div className="flex items-center gap-3 rounded-xl px-1 py-1">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#101827] text-xs font-bold uppercase text-white">
+            {user?.display_name?.[0] || '?'}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-[#101827] dark:text-zinc-100">{user?.display_name}</p>
+            <p className="truncate text-xs text-zinc-400">{user?.email}</p>
+          </div>
+          <button onClick={onLogout} aria-label="Log out" title="Log out" className="rounded-lg p-2 text-zinc-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10">
+            <LogoutIcon />
+          </button>
         </div>
       </div>
 
@@ -189,30 +209,22 @@ export default function Sidebar({
       </nav>
 
       <div className="border-t border-zinc-200 px-3 py-3 dark:border-slate-700">
-        <div className="mb-2 grid grid-cols-3 gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-[#1d293d]">
-          {['system', 'light', 'dark'].map((option) => (
+        <div className="mb-2 flex items-center justify-center gap-1 rounded-full bg-zinc-100 p-1 dark:bg-[#1d293d]">
+          {themeItems.map((option) => (
             <button
-              key={option}
-              onClick={() => setTheme(option)}
-              className={`rounded-lg py-1.5 text-[11px] font-medium capitalize ${
-                theme === option ? 'bg-white text-zinc-900 shadow-sm dark:bg-[#344158] dark:text-white' : 'text-zinc-400'
+              key={option.id}
+              onClick={() => setTheme(option.id)}
+              aria-label={option.label}
+              title={option.label}
+              className={`flex h-8 w-8 items-center justify-center rounded-full text-sm transition-colors ${
+                theme === option.id
+                  ? 'bg-white text-zinc-900 shadow-sm dark:bg-[#344158] dark:text-white'
+                  : 'text-zinc-400 hover:bg-white/70 hover:text-zinc-700 dark:hover:bg-[#344158] dark:hover:text-zinc-200'
               }`}
             >
-              {option === 'system' ? 'Auto' : option}
+              <span aria-hidden="true">{option.emoji}</span>
             </button>
           ))}
-        </div>
-        <div className="mb-2 flex items-center gap-3 border-y border-zinc-100 px-2 py-3 dark:border-slate-700">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#101827] text-xs font-bold uppercase text-white">
-            {user?.display_name?.[0] || '?'}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-[#101827] dark:text-zinc-100">{user?.display_name}</p>
-            <p className="truncate text-xs text-zinc-400">{user?.email}</p>
-          </div>
-          <button onClick={onLogout} aria-label="Log out" title="Log out" className="rounded-lg p-2 text-zinc-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10">
-            <LogoutIcon />
-          </button>
         </div>
         <button onClick={onToggleCollapse} className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-50 hover:text-zinc-700 dark:hover:bg-zinc-900 dark:hover:text-zinc-200">
           <Chevron />
