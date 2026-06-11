@@ -11,6 +11,23 @@ const NOTE_COLORS = [
   { value: '#a78bfa', label: 'Violet' },
 ];
 
+const VIEW_FILTERS = [
+  { id: 'active', label: 'Active' },
+  { id: 'pinned', label: 'Pinned' },
+  { id: 'private', label: 'Private' },
+  { id: 'linked', label: 'Linked' },
+  { id: 'mine', label: 'Mine' },
+  { id: 'archived', label: 'Archive' },
+];
+
+const SORT_MODES = [
+  { id: 'manual', label: 'Board order' },
+  { id: 'newest', label: 'Newest' },
+  { id: 'edited', label: 'Recently edited' },
+  { id: 'pinned', label: 'Pinned first' },
+  { id: 'linked', label: 'Most linked' },
+];
+
 function findOpenDesktopPosition(occupied) {
   for (let slot = 0; slot < 1000; slot += 1) {
     const candidate = { x: (slot % 3) * 336, y: Math.floor(slot / 3) * 360 };
@@ -96,6 +113,40 @@ function getRelationshipTone(note) {
   if (incoming > 0 && outgoing === 0) return { label: 'Child', className: 'bg-emerald-500/12 text-emerald-700 ring-emerald-500/20' };
   if (incoming > 0 && outgoing > 0) return { label: 'Hub', className: 'bg-violet-500/12 text-violet-700 ring-violet-500/20' };
   return null;
+}
+
+function getNotePlainText(note) {
+  const sections = (note.sections || [])
+    .map((section) => `${section.title || ''} ${section.content || ''}`)
+    .join(' ');
+  return `${note.title || ''} ${note.content || ''} ${sections} ${note.author_name || ''}`;
+}
+
+function getNoteSummary(note, maxLength = 92) {
+  const text = getNotePlainText(note).replace(/\s+/g, ' ').trim();
+  if (!text) return 'No text yet';
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}...` : text;
+}
+
+function formatRelativeActivity(value) {
+  if (!value) return 'No activity yet';
+  const timestamp = new Date(value).getTime();
+  if (Number.isNaN(timestamp)) return 'No activity yet';
+  const seconds = Math.max(1, Math.floor((Date.now() - timestamp) / 1000));
+  if (seconds < 60) return 'Edited just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `Edited ${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `Edited ${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `Edited ${days}d ago`;
+  return `Edited ${new Date(value).toLocaleDateString()}`;
+}
+
+function connectionCount(note) {
+  return (note.links || []).filter((link) => (
+    link.source_note_id === note.id || link.target_note_id === note.id
+  )).length;
 }
 
 function NoteImage({ image, onDelete, onAddAnnotation, onDeleteAnnotation }) {
@@ -203,6 +254,14 @@ function ScreenshotGroup({ images, onDeleteImage, onAddAnnotation, onDeleteAnnot
 function MergedNoteSection({
   section,
   images,
+  isCollapsed,
+  isDragging,
+  onToggleCollapse,
+  onMoveUp,
+  onMoveDown,
+  onDragStart,
+  onDragOver,
+  onDrop,
   onUpdate,
   onUnmerge,
   onDeleteSection,
@@ -245,9 +304,25 @@ function MergedNoteSection({
   }
 
   return (
-    <section className="overflow-hidden rounded-xl border border-black/10 bg-white/55 dark:border-black/10 dark:bg-zinc-50/80">
+    <section
+      className={`overflow-hidden rounded-xl border border-black/10 bg-white/55 transition-opacity dark:border-black/10 dark:bg-zinc-50/80 ${
+        isDragging ? 'opacity-55 ring-2 ring-emerald-500/40' : ''
+      }`}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+    >
       <div className="border-b border-black/10 p-3 dark:border-black/10">
         <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            draggable
+            onDragStart={onDragStart}
+            aria-label="Drag section"
+            title="Drag section"
+            className="flex h-7 w-7 shrink-0 cursor-grab touch-none items-center justify-center rounded-full text-zinc-400 hover:bg-black/5 hover:text-zinc-700 active:cursor-grabbing"
+          >
+            <GripIcon />
+          </button>
           <input
             value={title}
             onChange={(e) => {
@@ -261,7 +336,34 @@ function MergedNoteSection({
             {formatContextDate(section.context_updated_at)}
           </time>
         </div>
-        <div className="mt-2 flex items-center justify-end gap-2">
+        <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className="rounded-full border border-black/10 bg-white/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-600 transition-colors hover:bg-white"
+          >
+            {isCollapsed ? 'Expand' : 'Collapse'}
+          </button>
+          <div className="flex rounded-full border border-black/10 bg-white/70 p-0.5">
+            <button
+              type="button"
+              onClick={onMoveUp}
+              className="rounded-full px-2 py-0.5 text-[11px] font-semibold text-zinc-500 hover:bg-white hover:text-zinc-900"
+              aria-label="Move section up"
+              title="Move up"
+            >
+              Up
+            </button>
+            <button
+              type="button"
+              onClick={onMoveDown}
+              className="rounded-full px-2 py-0.5 text-[11px] font-semibold text-zinc-500 hover:bg-white hover:text-zinc-900"
+              aria-label="Move section down"
+              title="Move down"
+            >
+              Down
+            </button>
+          </div>
           <button
             type="button"
             onClick={handleUnmerge}
@@ -279,18 +381,24 @@ function MergedNoteSection({
             {busyAction === 'delete' ? 'Deleting...' : 'Delete part'}
           </button>
         </div>
-        <textarea
-          value={content}
-          onChange={(e) => {
-            setContent(e.target.value);
-            scheduleUpdate({ content: e.target.value });
-          }}
-          placeholder="Write something..."
-          className="mt-2 min-h-[64px] w-full resize-y bg-transparent text-xs leading-relaxed text-zinc-600 outline-none placeholder:text-zinc-400"
-          aria-label={`Text for ${title || 'merged note section'}`}
-        />
+        {isCollapsed ? (
+          <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-zinc-500">
+            {content?.trim() || 'No text in this section yet.'}
+          </p>
+        ) : (
+          <textarea
+            value={content}
+            onChange={(e) => {
+              setContent(e.target.value);
+              scheduleUpdate({ content: e.target.value });
+            }}
+            placeholder="Write something..."
+            className="mt-2 min-h-[64px] w-full resize-y bg-transparent text-xs leading-relaxed text-zinc-600 outline-none placeholder:text-zinc-400"
+            aria-label={`Text for ${title || 'merged note section'}`}
+          />
+        )}
       </div>
-      {images.length > 0 && (
+      {!isCollapsed && images.length > 0 && (
         <div className="grid gap-2 p-2">
           {images.map((image) => (
             <NoteImage key={image.id} image={image} onDelete={() => onDeleteImage(image.id)} onAddAnnotation={onAddAnnotation} onDeleteAnnotation={onDeleteAnnotation} />
@@ -303,6 +411,11 @@ function MergedNoteSection({
 
 function NoteCard({
   note,
+  linkedFrom = [],
+  linksTo = [],
+  activityLabel,
+  focusActive,
+  isDimmed,
   isMoving,
   isMergeTarget,
   desktopMergeEnabled,
@@ -310,8 +423,12 @@ function NoteCard({
   onMoveStart,
   onLinkStart,
   onZoomToNote,
+  onJumpToNote,
+  onFocusNote,
+  onHoverLinkedNote,
   onUpdate,
   onUpdateSection,
+  onReorderSections,
   onUnmergeSection,
   onDeleteSection,
   onDelete,
@@ -326,6 +443,9 @@ function NoteCard({
   const [isImageDragging, setIsImageDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [imageError, setImageError] = useState('');
+  const [collapsedSectionIds, setCollapsedSectionIds] = useState(() => new Set());
+  const [draggingSectionId, setDraggingSectionId] = useState('');
+  const [previewNote, setPreviewNote] = useState(null);
   const saveTimer = useRef(null);
   const fileInput = useRef(null);
   const zoomIntentRef = useRef(null);
@@ -348,9 +468,17 @@ function NoteCard({
     });
   }, [note.images]);
   const sections = note.sections || [];
+  const linkedNotes = [...linkedFrom, ...linksTo];
 
   useEffect(() => setTitle(note.title), [note.title]);
   useEffect(() => setContent(note.content), [note.content]);
+  useEffect(() => {
+    setCollapsedSectionIds((current) => {
+      const available = new Set(sections.map((section) => section.id));
+      const next = new Set([...current].filter((id) => available.has(id)));
+      return next;
+    });
+  }, [sections]);
   useEffect(() => () => {
     clearTimeout(saveTimer.current);
     zoomIntentRef.current = null;
@@ -411,6 +539,73 @@ function NoteCard({
     }
   }
 
+  function toggleSectionCollapse(sectionId) {
+    setCollapsedSectionIds((current) => {
+      const next = new Set(current);
+      if (next.has(sectionId)) {
+        next.delete(sectionId);
+      } else {
+        next.add(sectionId);
+      }
+      return next;
+    });
+  }
+
+  function reorderSection(sectionId, targetSectionId) {
+    if (!onReorderSections || sectionId === targetSectionId) return;
+    const currentIds = sections.map((section) => section.id);
+    const from = currentIds.indexOf(sectionId);
+    const to = currentIds.indexOf(targetSectionId);
+    if (from < 0 || to < 0) return;
+    const nextIds = [...currentIds];
+    const [moved] = nextIds.splice(from, 1);
+    nextIds.splice(to, 0, moved);
+    onReorderSections(note.id, nextIds);
+  }
+
+  function moveSection(sectionId, direction) {
+    if (!onReorderSections) return;
+    const currentIds = sections.map((section) => section.id);
+    const index = currentIds.indexOf(sectionId);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= currentIds.length) return;
+    const nextIds = [...currentIds];
+    [nextIds[index], nextIds[nextIndex]] = [nextIds[nextIndex], nextIds[index]];
+    onReorderSections(note.id, nextIds);
+  }
+
+  function renderLinkedNoteChip(item, direction) {
+    const linkedNote = item.note;
+    if (!linkedNote) return null;
+    return (
+      <button
+        key={`${direction}:${linkedNote.id}`}
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onJumpToNote?.(linkedNote.id);
+        }}
+        onMouseEnter={() => {
+          setPreviewNote(linkedNote);
+          onHoverLinkedNote?.(linkedNote.id);
+        }}
+        onMouseLeave={() => {
+          setPreviewNote(null);
+          onHoverLinkedNote?.('');
+        }}
+        className={`max-w-full truncate rounded-full border px-2 py-1 text-[10px] font-semibold transition-colors ${
+          direction === 'from'
+            ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+            : 'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100'
+        }`}
+        title={`${direction === 'from' ? 'Linked from' : 'Links to'} ${linkedNote.title || 'Untitled'}`}
+      >
+        {direction === 'from' ? 'From ' : 'To '}
+        {linkedNote.title || 'Untitled'}
+      </button>
+    );
+  }
+
   return (
     <div
       className={`group relative flex flex-col gap-3 rounded-[22px] border bg-white/96 p-4 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.55)] transition-all duration-200 hover:shadow-[0_24px_52px_-28px_rgba(15,23,42,0.65)] dark:bg-white/96 ${
@@ -421,7 +616,7 @@ function NoteCard({
             : isMergeTarget
               ? 'border-violet-500 ring-4 ring-violet-500/25 dark:border-violet-400'
             : 'border-white/70 dark:border-zinc-300'
-      } ${desktopMergeEnabled ? 'note-card-scroll h-full overflow-auto' : ''}`}
+      } ${focusActive && isDimmed ? 'opacity-25 saturate-75' : 'opacity-100'} ${desktopMergeEnabled ? 'note-card-scroll h-full overflow-auto' : ''}`}
       style={{ background: noteColor === '#ffffff' ? 'linear-gradient(180deg, rgba(255,255,255,0.97) 0%, rgba(248,250,252,0.94) 100%)' : `linear-gradient(180deg, color-mix(in srgb, ${noteColor} 88%, white 12%) 0%, color-mix(in srgb, ${noteColor} 76%, white 24%) 100%)` }}
       onPointerDown={(e) => {
         if (desktopMergeEnabled && !e.target.closest('input, textarea, button, a')) {
@@ -448,6 +643,13 @@ function NoteCard({
         }
       }}
     >
+      {previewNote && (
+        <div className="pointer-events-none absolute left-4 right-4 top-16 z-30 rounded-xl border border-zinc-200 bg-white/96 p-3 text-left shadow-xl shadow-zinc-900/10 dark:border-zinc-300 dark:bg-white/96">
+          <p className="truncate text-xs font-semibold text-zinc-950">{previewNote.title || 'Untitled'}</p>
+          <p className="mt-1 line-clamp-3 text-[11px] leading-relaxed text-zinc-600">{getNoteSummary(previewNote, 150)}</p>
+          <p className="mt-2 text-[10px] font-medium uppercase text-zinc-400">{formatRelativeActivity(previewNote.updated_at)}</p>
+        </div>
+      )}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-16 rounded-t-[22px] bg-gradient-to-b from-white/22 to-transparent" />
       {isImageDragging && (
         <div className="pointer-events-none absolute inset-2 z-10 flex items-center justify-center rounded-xl bg-blue-50/95 text-sm font-semibold text-blue-700 backdrop-blur dark:bg-blue-950/90 dark:text-blue-200">
@@ -502,6 +704,22 @@ function NoteCard({
         </div>
         <button
           type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onFocusNote?.(note.id);
+          }}
+          aria-label={focusActive ? 'Clear focus' : 'Focus note'}
+          title={focusActive ? 'Clear focus' : 'Focus note and linked notes'}
+          className={`mt-0.5 hidden h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors lg:flex ${
+            focusActive && !isDimmed
+              ? 'bg-zinc-950 text-white'
+              : 'text-zinc-400 hover:bg-black/5 hover:text-zinc-800'
+          }`}
+        >
+          F
+        </button>
+        <button
+          type="button"
           onPointerDown={(e) => {
             e.stopPropagation();
             clearTimeout(saveTimer.current);
@@ -516,6 +734,22 @@ function NoteCard({
           <LinkIcon />
         </button>
       </div>
+      {linkedNotes.length > 0 && (
+        <div className="relative grid gap-1 rounded-2xl bg-white/26 px-2 py-2 ring-1 ring-black/6">
+          {linkedFrom.length > 0 && (
+            <div className="flex min-w-0 flex-wrap items-center gap-1">
+              <span className="shrink-0 text-[10px] font-semibold uppercase text-zinc-500">Backlinks</span>
+              {linkedFrom.slice(0, 3).map((item) => renderLinkedNoteChip(item, 'from'))}
+            </div>
+          )}
+          {linksTo.length > 0 && (
+            <div className="flex min-w-0 flex-wrap items-center gap-1">
+              <span className="shrink-0 text-[10px] font-semibold uppercase text-zinc-500">Links</span>
+              {linksTo.slice(0, 3).map((item) => renderLinkedNoteChip(item, 'to'))}
+            </div>
+          )}
+        </div>
+      )}
       <div className="sticky top-0 z-20 flex w-full shrink-0 items-center justify-between gap-3 overflow-visible">
           <div className="flex shrink-0 items-center gap-1 rounded-full bg-white/88 px-1.5 py-1 shadow-sm ring-1 ring-black/10 backdrop-blur">
             {NOTE_COLORS.map((color) => (
@@ -554,9 +788,19 @@ function NoteCard({
             {note.is_private ? '🔒' : '🔓'}
           </button>
           <button
-            onClick={() => onDelete(note.id)}
-            aria-label="Delete note"
-            title="Delete note"
+            onClick={() => onUpdate(note.id, { is_archived: !note.is_archived })}
+            aria-label={note.is_archived ? 'Restore note' : 'Archive note'}
+            title={note.is_archived ? 'Restore note' : 'Archive note'}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded p-1 text-zinc-500 hover:bg-black/5 hover:text-zinc-900"
+          >
+            {note.is_archived ? 'R' : 'A'}
+          </button>
+          <button
+            onClick={() => {
+              if (window.confirm(`Permanently delete "${title || 'Untitled'}"?`)) onDelete(note.id);
+            }}
+            aria-label="Delete note permanently"
+            title="Delete permanently"
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded p-1 text-red-500 hover:bg-red-500/10 hover:text-red-600"
           >
             <TrashIcon />
@@ -594,6 +838,28 @@ function NoteCard({
               key={section.id}
               section={section}
               images={(note.images || []).filter((image) => image.section_id === section.id)}
+              isCollapsed={collapsedSectionIds.has(section.id)}
+              isDragging={draggingSectionId === section.id}
+              onToggleCollapse={() => toggleSectionCollapse(section.id)}
+              onMoveUp={() => moveSection(section.id, -1)}
+              onMoveDown={() => moveSection(section.id, 1)}
+              onDragStart={(event) => {
+                event.stopPropagation();
+                setDraggingSectionId(section.id);
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', section.id);
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const sourceSectionId = event.dataTransfer.getData('text/plain') || draggingSectionId;
+                setDraggingSectionId('');
+                reorderSection(sourceSectionId, section.id);
+              }}
               onUpdate={(sectionId, patch) => onUpdateSection(note.id, sectionId, patch)}
               onUnmerge={(sectionId) => onUnmergeSection(note.id, sectionId)}
               onDeleteSection={(sectionId) => onDeleteSection(note.id, sectionId)}
@@ -644,9 +910,14 @@ function NoteCard({
               Private
             </span>
           )}
+          {note.is_archived && (
+            <span className="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600">
+              Archived
+            </span>
+          )}
           {note.author_name}
         </span>
-        <span>{new Date(note.updated_at).toLocaleDateString()}</span>
+        <span title={new Date(note.updated_at).toLocaleString()}>{activityLabel || new Date(note.updated_at).toLocaleDateString()}</span>
       </div>
       {desktopMergeEnabled && (
         <>
@@ -679,9 +950,11 @@ function NoteCard({
 
 export default function NotesList({
   notes,
+  currentUser,
   onCreate,
   onUpdate,
   onUpdateSection,
+  onReorderSections,
   onUnmergeSection,
   onDeleteSection,
   onCreateLink,
@@ -694,6 +967,12 @@ export default function NotesList({
   onMerge,
 }) {
   const [query, setQuery] = useState('');
+  const [viewFilter, setViewFilter] = useState('active');
+  const [sortMode, setSortMode] = useState('manual');
+  const [focusedNoteId, setFocusedNoteId] = useState('');
+  const [hoveredNoteId, setHoveredNoteId] = useState('');
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [commandQuery, setCommandQuery] = useState('');
   const [desktopMergeEnabled, setDesktopMergeEnabled] = useState(false);
   const [positions, setPositions] = useState({});
   const [sizes, setSizes] = useState({});
@@ -714,19 +993,57 @@ export default function NotesList({
   const linkRef = useRef(null);
   const zoomControlsDragRef = useRef(null);
 
+  const noteById = useMemo(() => new Map(notes.map((note) => [note.id, note])), [notes]);
+  const allLinks = useMemo(() => {
+    const unique = new Map();
+    notes.forEach((note) => {
+      (note.links || []).forEach((link) => {
+        if (!unique.has(link.id)) unique.set(link.id, link);
+      });
+    });
+    return [...unique.values()];
+  }, [notes]);
+  const linkedNoteIds = useMemo(() => {
+    const ids = new Set();
+    allLinks.forEach((link) => {
+      ids.add(link.source_note_id);
+      ids.add(link.target_note_id);
+    });
+    return ids;
+  }, [allLinks]);
+  const focusedLinkedIds = useMemo(() => {
+    if (!focusedNoteId) return new Set();
+    const ids = new Set([focusedNoteId]);
+    allLinks.forEach((link) => {
+      if (link.source_note_id === focusedNoteId) ids.add(link.target_note_id);
+      if (link.target_note_id === focusedNoteId) ids.add(link.source_note_id);
+    });
+    return ids;
+  }, [allLinks, focusedNoteId]);
+
   const filteredNotes = useMemo(() => {
     const term = query.trim().toLowerCase();
     return [...notes]
       .sort((a, b) => {
+        if (sortMode === 'newest') return new Date(b.created_at) - new Date(a.created_at);
+        if (sortMode === 'edited') return new Date(b.updated_at) - new Date(a.updated_at);
+        if (sortMode === 'linked') return connectionCount(b) - connectionCount(a);
+        if (sortMode === 'pinned' && a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1;
         if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1;
         if ((a.sort_order ?? 0) !== (b.sort_order ?? 0)) return (a.sort_order ?? 0) - (b.sort_order ?? 0);
         return new Date(b.updated_at) - new Date(a.updated_at);
       })
       .filter((note) => {
+        if (viewFilter === 'active' && note.is_archived) return false;
+        if (viewFilter === 'archived' && !note.is_archived) return false;
+        if (viewFilter === 'pinned' && (!note.is_pinned || note.is_archived)) return false;
+        if (viewFilter === 'private' && (!note.is_private || note.is_archived)) return false;
+        if (viewFilter === 'linked' && (!linkedNoteIds.has(note.id) || note.is_archived)) return false;
+        if (viewFilter === 'mine' && (note.created_by !== currentUser?.id || note.is_archived)) return false;
         if (!term) return true;
-        return `${note.title} ${note.content} ${note.author_name || ''}`.toLowerCase().includes(term);
+        return getNotePlainText(note).toLowerCase().includes(term);
       });
-  }, [notes, query]);
+  }, [currentUser?.id, linkedNoteIds, notes, query, sortMode, viewFilter]);
 
   const filteredNoteIds = useMemo(() => new Set(filteredNotes.map((note) => note.id)), [filteredNotes]);
   const boardLinks = useMemo(() => {
@@ -998,6 +1315,22 @@ export default function NotesList({
     scroller.scrollTo({ left: targetLeft, top: targetTop, behavior: 'smooth' });
   }
 
+  function jumpToNote(noteId) {
+    setFocusedNoteId(noteId);
+    if (desktopMergeEnabled && boardScale < 0.99) {
+      setBoardScale(1);
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => centerNoteInView(noteId));
+      });
+      return;
+    }
+    centerNoteInView(noteId);
+  }
+
+  function toggleFocusNote(noteId) {
+    setFocusedNoteId((current) => (current === noteId ? '' : noteId));
+  }
+
   function handleZoomToNote(noteId, target) {
     if (!desktopMergeEnabled || boardScale > MIN_BOARD_SCALE + 0.001) return false;
     if (!target?.matches?.('input, textarea')) return false;
@@ -1034,6 +1367,69 @@ export default function NotesList({
     setIsPanning(true);
   }
 
+  useEffect(() => {
+    function handleKeyDown(event) {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setCommandOpen(true);
+      }
+      if (event.key === 'Escape') {
+        setCommandOpen(false);
+        setFocusedNoteId('');
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const commandNotes = useMemo(() => {
+    const term = commandQuery.trim().toLowerCase();
+    return notes
+      .filter((note) => !note.is_archived)
+      .filter((note) => !term || getNotePlainText(note).toLowerCase().includes(term))
+      .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
+      .slice(0, 8);
+  }, [commandQuery, notes]);
+
+  async function runCommand(action, note) {
+    setCommandOpen(false);
+    if (action === 'create') {
+      await onCreate();
+      return;
+    }
+    if (!note) return;
+    if (action === 'jump') jumpToNote(note.id);
+    if (action === 'pin') await onUpdate(note.id, { is_pinned: !note.is_pinned });
+    if (action === 'private') await onUpdate(note.id, { is_private: !note.is_private });
+    if (action === 'archive') await onUpdate(note.id, { is_archived: true });
+    if (action === 'focus') setFocusedNoteId(note.id);
+  }
+
+  function getLinkContext(note) {
+    const linkedFrom = allLinks
+      .filter((link) => link.target_note_id === note.id)
+      .map((link) => ({ link, note: noteById.get(link.source_note_id) }))
+      .filter((item) => item.note);
+    const linksTo = allLinks
+      .filter((link) => link.source_note_id === note.id)
+      .map((link) => ({ link, note: noteById.get(link.target_note_id) }))
+      .filter((item) => item.note);
+    return { linkedFrom, linksTo };
+  }
+
+  function isNoteDimmed(noteId) {
+    if (!focusedNoteId && !hoveredNoteId) return false;
+    const activeId = hoveredNoteId || focusedNoteId;
+    if (noteId === activeId) return false;
+    if (hoveredNoteId) {
+      return !allLinks.some((link) => (
+        (link.source_note_id === activeId && link.target_note_id === noteId) ||
+        (link.target_note_id === activeId && link.source_note_id === noteId)
+      ));
+    }
+    return !focusedLinkedIds.has(noteId);
+  }
+
   const boardSize = useMemo(() => ({
     width: Math.max(1100, ...filteredNotes.map((note) => (positions[note.id]?.x || 0) + (sizes[note.id]?.width || DEFAULT_NOTE_SIZE.width) + 40)),
     height: Math.max(700, ...filteredNotes.map((note) => (positions[note.id]?.y || 0) + (sizes[note.id]?.height || DEFAULT_NOTE_SIZE.height) + 120)),
@@ -1054,6 +1450,25 @@ export default function NotesList({
             placeholder="Search…"
             className="w-36 rounded-lg bg-zinc-100 px-3 py-1.5 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:ring-1 focus:ring-zinc-400 dark:bg-[#2a374c] dark:text-zinc-100 dark:placeholder:text-slate-400 dark:focus:ring-emerald-500 sm:w-44"
           />
+          <select
+            value={sortMode}
+            onChange={(event) => setSortMode(event.target.value)}
+            className="rounded-lg bg-zinc-100 px-2 py-1.5 text-xs font-medium text-zinc-700 outline-none focus:ring-1 focus:ring-zinc-400 dark:bg-[#2a374c] dark:text-zinc-100"
+            aria-label="Sort notes"
+            title="Sort notes"
+          >
+            {SORT_MODES.map((mode) => (
+              <option key={mode.id} value={mode.id}>{mode.label}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => setCommandOpen(true)}
+            className="rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-200 dark:bg-[#2a374c] dark:text-zinc-100 dark:hover:bg-[#344158]"
+            title="Command palette"
+          >
+            Cmd
+          </button>
           <AiNoteAssistant onCreate={onCreate} onUpdate={onUpdate} />
           <button
             onClick={() => onCreate()}
@@ -1062,7 +1477,79 @@ export default function NotesList({
             + New note
           </button>
         </div>
+        <div className="mt-2 flex gap-1 overflow-x-auto pb-0.5">
+          {VIEW_FILTERS.map((filter) => (
+            <button
+              key={filter.id}
+              type="button"
+              onClick={() => setViewFilter(filter.id)}
+              className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                viewFilter === filter.id
+                  ? 'bg-zinc-950 text-white dark:bg-emerald-500 dark:text-white'
+                  : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 dark:bg-[#2a374c] dark:text-slate-300 dark:hover:bg-[#344158] dark:hover:text-white'
+              }`}
+            >
+              {filter.label}
+            </button>
+          ))}
+          {focusedNoteId && (
+            <button
+              type="button"
+              onClick={() => setFocusedNoteId('')}
+              className="ml-auto shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100"
+            >
+              Clear focus
+            </button>
+          )}
+        </div>
       </header>
+      {commandOpen && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-zinc-950/35 px-4 pt-24 backdrop-blur-sm">
+          <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl shadow-zinc-950/20 dark:border-slate-600 dark:bg-[#202c40]">
+            <div className="border-b border-zinc-200 p-3 dark:border-slate-600">
+              <input
+                autoFocus
+                value={commandQuery}
+                onChange={(event) => setCommandQuery(event.target.value)}
+                placeholder="Jump, create, focus, pin, archive..."
+                className="w-full bg-transparent text-sm font-medium text-zinc-950 outline-none placeholder:text-zinc-400 dark:text-zinc-100"
+              />
+            </div>
+            <div className="max-h-[420px] overflow-y-auto p-2">
+              <button
+                type="button"
+                onClick={() => runCommand('create')}
+                className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-500/10"
+              >
+                <span>Create new note</span>
+                <span className="text-xs text-emerald-500">New</span>
+              </button>
+              {commandNotes.map((note) => (
+                <div key={note.id} className="rounded-xl px-2 py-2 hover:bg-zinc-50 dark:hover:bg-[#2a374c]">
+                  <div className="flex items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={() => runCommand('jump', note)}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <p className="truncate text-sm font-semibold text-zinc-950 dark:text-zinc-100">{note.title || 'Untitled'}</p>
+                      <p className="truncate text-xs text-zinc-500 dark:text-slate-400">{getNoteSummary(note, 110)}</p>
+                    </button>
+                    <div className="flex shrink-0 gap-1">
+                      <button type="button" onClick={() => runCommand('focus', note)} className="rounded-full px-2 py-1 text-[10px] font-semibold text-zinc-500 hover:bg-zinc-100 dark:text-slate-300 dark:hover:bg-[#344158]">Focus</button>
+                      <button type="button" onClick={() => runCommand('pin', note)} className="rounded-full px-2 py-1 text-[10px] font-semibold text-zinc-500 hover:bg-zinc-100 dark:text-slate-300 dark:hover:bg-[#344158]">Pin</button>
+                      <button type="button" onClick={() => runCommand('archive', note)} className="rounded-full px-2 py-1 text-[10px] font-semibold text-zinc-500 hover:bg-zinc-100 dark:text-slate-300 dark:hover:bg-[#344158]">Archive</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end border-t border-zinc-200 p-2 dark:border-slate-600">
+              <button type="button" onClick={() => setCommandOpen(false)} className="rounded-lg px-3 py-1.5 text-xs font-semibold text-zinc-500 hover:bg-zinc-100 dark:text-slate-300 dark:hover:bg-[#344158]">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div ref={scrollerRef} className="flex-1 overflow-auto p-4 sm:p-6" onWheel={handleBoardWheel}>
         {filteredNotes.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-24 text-zinc-600 dark:text-zinc-300">
@@ -1192,66 +1679,91 @@ export default function NotesList({
                   );
                 })()}
                   </svg>
-                  {filteredNotes.map((note) => (
-                    <div
-                      key={note.id}
-                      data-note-id={note.id}
-                      className="absolute z-10"
-                      style={{
-                        width: sizes[note.id]?.width || DEFAULT_NOTE_SIZE.width,
-                        height: sizes[note.id]?.height || DEFAULT_NOTE_SIZE.height,
-                        transform: `translate3d(${positions[note.id]?.x || 0}px, ${positions[note.id]?.y || 0}px, 0)`,
-                        zIndex: movingNoteId === note.id || resizingNoteId === note.id ? 20 : note.is_pinned ? 5 : 1,
-                      }}
-                    >
-                      <NoteCard
-                        note={note}
-                        isMoving={movingNoteId === note.id}
-                        isMergeTarget={mergeTargetId === note.id}
-                        isLinking={linkingNoteId === note.id}
-                        desktopMergeEnabled={desktopMergeEnabled && !query.trim()}
-                  onMoveStart={handleMoveStart}
-                  onLinkStart={handleLinkStart}
-                  onZoomToNote={handleZoomToNote}
-                  onResizeStart={handleResizeStart}
-                  onUpdate={onUpdate}
-                  onUpdateSection={onUpdateSection}
-                  onUnmergeSection={onUnmergeSection}
-                  onDeleteSection={onDeleteSection}
-                  onDelete={onDelete}
-                  onAddImage={onAddImage}
-                  onDeleteImage={onDeleteImage}
-                  onAddAnnotation={onAddAnnotation}
-                        onDeleteAnnotation={onDeleteAnnotation}
-                      />
-                    </div>
-                  ))}
+                  {filteredNotes.map((note) => {
+                    const linkContext = getLinkContext(note);
+                    const dimmed = isNoteDimmed(note.id);
+                    return (
+                      <div
+                        key={note.id}
+                        data-note-id={note.id}
+                        className="absolute z-10 transition-opacity"
+                        style={{
+                          width: sizes[note.id]?.width || DEFAULT_NOTE_SIZE.width,
+                          height: sizes[note.id]?.height || DEFAULT_NOTE_SIZE.height,
+                          transform: `translate3d(${positions[note.id]?.x || 0}px, ${positions[note.id]?.y || 0}px, 0)`,
+                          zIndex: movingNoteId === note.id || resizingNoteId === note.id || focusedNoteId === note.id ? 20 : note.is_pinned ? 5 : 1,
+                        }}
+                      >
+                        <NoteCard
+                          note={note}
+                          linkedFrom={linkContext.linkedFrom}
+                          linksTo={linkContext.linksTo}
+                          activityLabel={formatRelativeActivity(note.updated_at)}
+                          focusActive={Boolean(focusedNoteId)}
+                          isDimmed={dimmed}
+                          isMoving={movingNoteId === note.id}
+                          isMergeTarget={mergeTargetId === note.id}
+                          isLinking={linkingNoteId === note.id}
+                          desktopMergeEnabled={desktopMergeEnabled && !query.trim()}
+                          onMoveStart={handleMoveStart}
+                          onLinkStart={handleLinkStart}
+                          onZoomToNote={handleZoomToNote}
+                          onJumpToNote={jumpToNote}
+                          onFocusNote={toggleFocusNote}
+                          onHoverLinkedNote={setHoveredNoteId}
+                          onResizeStart={handleResizeStart}
+                          onUpdate={onUpdate}
+                          onUpdateSection={onUpdateSection}
+                          onReorderSections={onReorderSections}
+                          onUnmergeSection={onUnmergeSection}
+                          onDeleteSection={onDeleteSection}
+                          onDelete={onDelete}
+                          onAddImage={onAddImage}
+                          onDeleteImage={onDeleteImage}
+                          onAddAnnotation={onAddAnnotation}
+                          onDeleteAnnotation={onDeleteAnnotation}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               )}
-              {!desktopMergeEnabled && filteredNotes.map((note) => (
-                <div key={note.id}>
-                  <NoteCard
-                    note={note}
-                    isMoving={movingNoteId === note.id}
-                    isMergeTarget={mergeTargetId === note.id}
-                    isLinking={linkingNoteId === note.id}
-                    desktopMergeEnabled={false}
-                    onMoveStart={handleMoveStart}
-                    onLinkStart={handleLinkStart}
-                    onZoomToNote={handleZoomToNote}
-                    onResizeStart={handleResizeStart}
-                    onUpdate={onUpdate}
-                    onUpdateSection={onUpdateSection}
-                    onUnmergeSection={onUnmergeSection}
-                    onDeleteSection={onDeleteSection}
-                    onDelete={onDelete}
-                    onAddImage={onAddImage}
-                    onDeleteImage={onDeleteImage}
-                    onAddAnnotation={onAddAnnotation}
-                    onDeleteAnnotation={onDeleteAnnotation}
-                  />
-                </div>
-              ))}
+              {!desktopMergeEnabled && filteredNotes.map((note) => {
+                const linkContext = getLinkContext(note);
+                return (
+                  <div key={note.id}>
+                    <NoteCard
+                      note={note}
+                      linkedFrom={linkContext.linkedFrom}
+                      linksTo={linkContext.linksTo}
+                      activityLabel={formatRelativeActivity(note.updated_at)}
+                      focusActive={Boolean(focusedNoteId)}
+                      isDimmed={isNoteDimmed(note.id)}
+                      isMoving={movingNoteId === note.id}
+                      isMergeTarget={mergeTargetId === note.id}
+                      isLinking={linkingNoteId === note.id}
+                      desktopMergeEnabled={false}
+                      onMoveStart={handleMoveStart}
+                      onLinkStart={handleLinkStart}
+                      onZoomToNote={handleZoomToNote}
+                      onJumpToNote={jumpToNote}
+                      onFocusNote={toggleFocusNote}
+                      onHoverLinkedNote={setHoveredNoteId}
+                      onResizeStart={handleResizeStart}
+                      onUpdate={onUpdate}
+                      onUpdateSection={onUpdateSection}
+                      onReorderSections={onReorderSections}
+                      onUnmergeSection={onUnmergeSection}
+                      onDeleteSection={onDeleteSection}
+                      onDelete={onDelete}
+                      onAddImage={onAddImage}
+                      onDeleteImage={onDeleteImage}
+                      onAddAnnotation={onAddAnnotation}
+                      onDeleteAnnotation={onDeleteAnnotation}
+                    />
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

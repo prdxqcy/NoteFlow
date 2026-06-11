@@ -349,6 +349,22 @@ export default function DashboardPage() {
     )));
   }, []);
 
+  const handleReorderNoteSections = useCallback(async (noteId, sectionIds) => {
+    setNotes((prev) => prev.map((note) => (
+      note.id === noteId
+        ? {
+            ...note,
+            sections: sectionIds
+              .map((sectionId) => (note.sections || []).find((section) => section.id === sectionId))
+              .filter(Boolean)
+              .map((section, index) => ({ ...section, sort_order: index })),
+          }
+        : note
+    )));
+    const updated = await api.reorderNoteSections(noteId, sectionIds);
+    setNotes((prev) => prev.map((note) => (note.id === noteId ? updated : note)));
+  }, []);
+
   const handleUnmergeNoteSection = useCallback(async (noteId, sectionId) => {
     const result = await api.unmergeNoteSection(noteId, sectionId);
     setNotes((prev) => {
@@ -586,9 +602,11 @@ export default function DashboardPage() {
           ) : view === 'notes' ? (
             <NotesList
               notes={notes}
+              currentUser={user}
               onCreate={handleCreateNote}
               onUpdate={handleUpdateNote}
               onUpdateSection={handleUpdateNoteSection}
+              onReorderSections={handleReorderNoteSections}
               onUnmergeSection={handleUnmergeNoteSection}
               onDeleteSection={handleDeleteNoteSection}
               onCreateLink={handleCreateNoteLink}

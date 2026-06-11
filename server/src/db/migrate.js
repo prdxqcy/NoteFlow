@@ -100,6 +100,10 @@ async function migrate() {
     `);
 
     await client.query(`
+      ALTER TABLE notes ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT false;
+    `);
+
+    await client.query(`
       ALTER TABLE notes ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;
     `);
 
@@ -321,6 +325,7 @@ async function migrate() {
           AND NEW.color IS NOT DISTINCT FROM OLD.color
           AND NEW.is_pinned IS NOT DISTINCT FROM OLD.is_pinned
           AND NEW.is_private IS NOT DISTINCT FROM OLD.is_private
+          AND NEW.is_archived IS NOT DISTINCT FROM OLD.is_archived
           AND NEW.position_x IS NOT DISTINCT FROM OLD.position_x
           AND NEW.position_y IS NOT DISTINCT FROM OLD.position_y
           AND NEW.note_width IS NOT DISTINCT FROM OLD.note_width

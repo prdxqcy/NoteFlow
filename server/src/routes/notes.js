@@ -517,6 +517,64 @@ router.patch('/:noteId/sections/:sectionId', async (req, res) => {
   }
 });
 
+router.put('/:noteId/sections/order', async (req, res) => {
+  const { section_ids } = req.body;
+  if (!Array.isArray(section_ids) || section_ids.some((id) => typeof id !== 'string')) {
+    return res.status(400).json({ error: 'section_ids must be an array' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: noteRows } = await client.query('SELECT * FROM notes WHERE id = $1 FOR UPDATE', [req.params.noteId]);
+    const note = noteRows[0];
+    if (!note) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Note not found' });
+    }
+    if (!(await assertMember(note.workspace_id, req.user.id))) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    if (!(await assertPermission(note.workspace_id, req.user.id, 'edit_notes'))) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'You do not have permission to edit notes' });
+    }
+
+    const { rows: existing } = await client.query(
+      'SELECT id FROM note_sections WHERE note_id = $1',
+      [note.id]
+    );
+    const existingIds = new Set(existing.map((section) => section.id));
+    if (section_ids.length !== existingIds.size || section_ids.some((id) => !existingIds.has(id))) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Section order does not match this note' });
+    }
+
+    for (const [index, sectionId] of section_ids.entries()) {
+      await client.query(
+        'UPDATE note_sections SET sort_order = $1 WHERE id = $2 AND note_id = $3',
+        [index, sectionId, note.id]
+      );
+    }
+
+    await normalizeMergedNote(note.id, client);
+    await client.query(
+      `INSERT INTO workspace_activity(workspace_id,user_id,action,entity_type,entity_id,details)
+       VALUES($1,$2,'reordered-sections','note',$3,$4)`,
+      [note.workspace_id, req.user.id, note.id, { section_count: section_ids.length }]
+    );
+    await client.query('COMMIT');
+    res.json(await getNoteWithImages(note.id));
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    res.status(500).json({ error: 'Could not reorder merged sections' });
+  } finally {
+    client.release();
+  }
+});
+
 router.post('/:noteId/sections/:sectionId/unmerge', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -751,7 +809,7 @@ router.post('/', async (req, res) => {
 
 // Update a note
 router.patch('/:id', async (req, res) => {
-  const { title, content, color, is_pinned, is_private, position_x, position_y, note_width, note_height } = req.body;
+  const { title, content, color, is_pinned, is_private, is_archived, position_x, position_y, note_width, note_height } = req.body;
   try {
     const { rows: noteRows } = await pool.query(
       'SELECT * FROM notes WHERE id = $1',
@@ -783,13 +841,14 @@ router.patch('/:id', async (req, res) => {
            color      = COALESCE($3, color),
            is_pinned  = COALESCE($4, is_pinned),
            is_private = COALESCE($5, is_private),
-           position_x = COALESCE($6, position_x),
-           position_y = COALESCE($7, position_y),
-           note_width = COALESCE($8, note_width),
-           note_height = COALESCE($9, note_height)
-       WHERE id = $10
+           is_archived = COALESCE($6, is_archived),
+           position_x = COALESCE($7, position_x),
+           position_y = COALESCE($8, position_y),
+           note_width = COALESCE($9, note_width),
+           note_height = COALESCE($10, note_height)
+       WHERE id = $11
        RETURNING *`,
-      [title, content, color, is_pinned, is_private, position_x, position_y, note_width, note_height, req.params.id]
+      [title, content, color, is_pinned, is_private, is_archived, position_x, position_y, note_width, note_height, req.params.id]
     );
     res.json(rows[0]);
   } catch (err) {
