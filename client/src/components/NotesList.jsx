@@ -87,6 +87,17 @@ function getLinkPath(start, end) {
   return `M ${start.x} ${start.y} C ${start.x + curve} ${start.y}, ${end.x - curve} ${end.y}, ${end.x} ${end.y}`;
 }
 
+function getRelationshipTone(note) {
+  const links = note.links || [];
+  const outgoing = links.filter((link) => link.source_note_id === note.id).length;
+  const incoming = links.filter((link) => link.target_note_id === note.id).length;
+
+  if (outgoing > 0 && incoming === 0) return { label: 'Parent', className: 'bg-sky-500/12 text-sky-700 ring-sky-500/20' };
+  if (incoming > 0 && outgoing === 0) return { label: 'Child', className: 'bg-emerald-500/12 text-emerald-700 ring-emerald-500/20' };
+  if (incoming > 0 && outgoing > 0) return { label: 'Hub', className: 'bg-violet-500/12 text-violet-700 ring-violet-500/20' };
+  return null;
+}
+
 function NoteImage({ image, onDelete, onAddAnnotation, onDeleteAnnotation }) {
   const [url, setUrl] = useState('');
 
@@ -269,6 +280,7 @@ function NoteCard({
   const fileInput = useRef(null);
   const zoomIntentRef = useRef(null);
   const noteColor = note.color || '#ffffff';
+  const relationshipTone = getRelationshipTone(note);
   const imageGroups = useMemo(() => {
     const groups = new Map();
     for (const image of note.images || []) {
@@ -351,16 +363,16 @@ function NoteCard({
 
   return (
     <div
-      className={`group relative flex flex-col gap-2 rounded-2xl border bg-white p-4 shadow-sm transition-all hover:shadow-md dark:bg-white dark:shadow-lg dark:shadow-black/45 ${
+      className={`group relative flex flex-col gap-3 rounded-[22px] border bg-white/96 p-4 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.55)] transition-all duration-200 hover:shadow-[0_24px_52px_-28px_rgba(15,23,42,0.65)] dark:bg-white/96 ${
         isImageDragging
           ? 'border-blue-500 ring-4 ring-blue-500/20 dark:border-blue-400'
           : isMoving
-            ? 'border-zinc-300 shadow-sm dark:border-zinc-300'
+            ? 'border-zinc-300 shadow-[0_20px_44px_-26px_rgba(15,23,42,0.55)] dark:border-zinc-300'
             : isMergeTarget
               ? 'border-violet-500 ring-4 ring-violet-500/25 dark:border-violet-400'
-            : 'border-zinc-200 dark:border-zinc-300'
+            : 'border-white/70 dark:border-zinc-300'
       } ${desktopMergeEnabled ? 'h-full overflow-auto' : ''}`}
-      style={{ background: noteColor === '#ffffff' ? undefined : noteColor }}
+      style={{ background: noteColor === '#ffffff' ? 'linear-gradient(180deg, rgba(255,255,255,0.97) 0%, rgba(248,250,252,0.94) 100%)' : `linear-gradient(180deg, color-mix(in srgb, ${noteColor} 88%, white 12%) 0%, color-mix(in srgb, ${noteColor} 76%, white 24%) 100%)` }}
       onPointerDown={(e) => {
         if (desktopMergeEnabled && !e.target.closest('input, textarea, button, a')) {
           clearTimeout(saveTimer.current);
@@ -386,6 +398,7 @@ function NoteCard({
         }
       }}
     >
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-16 rounded-t-[22px] bg-gradient-to-b from-white/22 to-transparent" />
       {isImageDragging && (
         <div className="pointer-events-none absolute inset-2 z-10 flex items-center justify-center rounded-xl bg-blue-50/95 text-sm font-semibold text-blue-700 backdrop-blur dark:bg-blue-950/90 dark:text-blue-200">
           Drop screenshots here
@@ -396,7 +409,7 @@ function NoteCard({
           Release to merge here
         </div>
       )}
-      <div className="flex min-w-0 items-start gap-2">
+      <div className="flex min-w-0 items-start gap-2 border-b border-black/8 pb-3">
         <button
           type="button"
           onPointerDown={(e) => {
@@ -412,19 +425,31 @@ function NoteCard({
         >
           <GripIcon />
         </button>
-        <input
-          className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-zinc-900 dark:placeholder:text-zinc-400"
-          value={title}
-          placeholder="Untitled"
-          onPointerDown={beginZoomIntent}
-          onPointerMove={cancelZoomIntent}
-          onPointerUp={commitZoomIntent}
-          onPointerCancel={() => { zoomIntentRef.current = null; }}
-          onChange={(e) => {
-            setTitle(e.target.value);
-            scheduleUpdate({ title: e.target.value });
-          }}
-        />
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <input
+              className="min-w-0 flex-1 bg-transparent text-sm font-semibold tracking-tight text-zinc-950 outline-none placeholder:text-zinc-500 dark:text-zinc-950 dark:placeholder:text-zinc-500"
+              value={title}
+              placeholder="Untitled"
+              onPointerDown={beginZoomIntent}
+              onPointerMove={cancelZoomIntent}
+              onPointerUp={commitZoomIntent}
+              onPointerCancel={() => { zoomIntentRef.current = null; }}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                scheduleUpdate({ title: e.target.value });
+              }}
+            />
+            {relationshipTone && (
+              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ${relationshipTone.className}`}>
+                {relationshipTone.label}
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-500">
+            {note.author_name || 'Note'}
+          </p>
+        </div>
         <button
           type="button"
           onPointerDown={(e) => {
@@ -441,8 +466,8 @@ function NoteCard({
           <LinkIcon />
         </button>
       </div>
-      <div className="sticky top-0 z-20 flex w-full shrink-0 items-center justify-end gap-1 overflow-visible py-1">
-          <div className="flex shrink-0 items-center gap-1 rounded-full bg-white/85 px-1.5 py-1 shadow-sm ring-1 ring-zinc-200 dark:bg-white dark:ring-zinc-300">
+      <div className="sticky top-0 z-20 flex w-full shrink-0 items-center justify-between gap-3 overflow-visible">
+          <div className="flex shrink-0 items-center gap-1 rounded-full bg-white/88 px-1.5 py-1 shadow-sm ring-1 ring-black/10 backdrop-blur">
             {NOTE_COLORS.map((color) => (
               <button
                 key={color.value}
@@ -456,13 +481,16 @@ function NoteCard({
               />
             ))}
           </div>
-          <button
-            onClick={() => onUpdate(note.id, { is_pinned: !note.is_pinned })}
-            title={note.is_pinned ? 'Unpin' : 'Pin'}
-            className="shrink-0 rounded px-1.5 py-1 text-xs text-zinc-500 hover:bg-black/5 hover:text-zinc-900 dark:text-zinc-500 dark:hover:bg-black/5 dark:hover:text-zinc-900"
-          >
-            {note.is_pinned ? 'Pinned' : 'Pin'}
-          </button>
+          <div className="flex items-center gap-1 rounded-full bg-white/56 px-1 py-1 ring-1 ring-black/8 backdrop-blur">
+            <button
+              onClick={() => onUpdate(note.id, { is_pinned: !note.is_pinned })}
+              title={note.is_pinned ? 'Unpin' : 'Pin'}
+              className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-medium transition-colors ${
+                note.is_pinned ? 'bg-zinc-950 text-white' : 'text-zinc-500 hover:bg-black/5 hover:text-zinc-900'
+              }`}
+            >
+              Pin
+            </button>
           <button
             onClick={() => onUpdate(note.id, { is_private: !note.is_private })}
             aria-label={note.is_private ? 'Make visible to workspace' : 'Make private'}
@@ -484,9 +512,10 @@ function NoteCard({
             <TrashIcon />
           </button>
       </div>
+      </div>
       {sections.length === 0 && (
         <textarea
-          className={`min-h-[80px] resize-none bg-transparent text-sm text-zinc-600 outline-none placeholder:text-zinc-400 dark:text-zinc-700 dark:placeholder:text-zinc-400 ${
+          className={`min-h-[96px] resize-none rounded-2xl bg-white/24 px-3 py-3 text-sm leading-6 text-zinc-700 outline-none ring-1 ring-black/6 placeholder:text-zinc-500 dark:text-zinc-700 dark:placeholder:text-zinc-500 ${
             desktopMergeEnabled ? 'flex-1' : ''
           }`}
           value={content}
@@ -536,7 +565,7 @@ function NoteCard({
           ))}
         </div>
       )}
-      <div className="flex items-center gap-2">
+      <div className="mt-auto flex items-center gap-2 pt-1">
         <input
           ref={fileInput}
           type="file"
@@ -549,14 +578,14 @@ function NoteCard({
           type="button"
           onClick={() => fileInput.current?.click()}
           disabled={uploading}
-          className="rounded-lg border border-black/10 bg-white/60 px-2.5 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-white disabled:cursor-wait disabled:opacity-60 dark:border-black/10 dark:bg-zinc-50 dark:text-zinc-700 dark:hover:bg-zinc-100"
+          className="rounded-full border border-black/10 bg-white/76 px-3 py-1.5 text-[11px] font-medium text-zinc-700 transition-colors hover:bg-white disabled:cursor-wait disabled:opacity-60"
         >
           {uploading ? 'Adding screenshot...' : '+ Screenshot'}
         </button>
         <span className="text-[10px] text-zinc-500">Drop or paste images</span>
       </div>
       {imageError && <p className="text-xs text-red-600 dark:text-red-400">{imageError}</p>}
-      <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-500">
+      <div className="flex items-center justify-between border-t border-black/8 pt-2 text-[11px] text-zinc-500 dark:text-zinc-500">
         <span className="flex items-center gap-1">
           {note.is_private && (
             <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
@@ -1073,17 +1102,24 @@ export default function NotesList({
                   const start = getLinkAnchor(link.source_note_id, sourceDirection, positions, sizes);
                   const end = getLinkAnchor(link.target_note_id, targetDirection, positions, sizes);
                   return (
-                    <path
-                      key={link.id}
-                      d={getLinkPath(start, end)}
-                      className="pointer-events-auto cursor-pointer fill-none stroke-slate-400 stroke-[2.5] transition-colors hover:stroke-emerald-500"
-                      markerEnd="url(#note-link-arrow)"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        const confirmed = window.confirm('Delete this note connection?');
-                        if (confirmed) onDeleteLink(link.source_note_id, link.id);
-                      }}
-                    />
+                    <>
+                      <path
+                        key={`${link.id}:glow`}
+                        d={getLinkPath(start, end)}
+                        className="pointer-events-none fill-none stroke-slate-400/30 stroke-[9]"
+                      />
+                      <path
+                        key={link.id}
+                        d={getLinkPath(start, end)}
+                        className="pointer-events-auto cursor-pointer fill-none stroke-slate-500 stroke-[2.5] transition-colors hover:stroke-emerald-500"
+                        markerEnd="url(#note-link-arrow)"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          const confirmed = window.confirm('Delete this note connection?');
+                          if (confirmed) onDeleteLink(link.source_note_id, link.id);
+                        }}
+                      />
+                    </>
                   );
                 })}
                 {linkingNoteId && draftLinkPoint && (() => {
