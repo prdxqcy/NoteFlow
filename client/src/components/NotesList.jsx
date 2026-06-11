@@ -621,6 +621,7 @@ export default function NotesList({
   const [linkTargetId, setLinkTargetId] = useState('');
   const [draftLinkPoint, setDraftLinkPoint] = useState(null);
   const [boardScale, setBoardScale] = useState(1);
+  const [zoomControlsOffset, setZoomControlsOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const boardRef = useRef(null);
   const scrollerRef = useRef(null);
@@ -628,6 +629,7 @@ export default function NotesList({
   const resizeRef = useRef(null);
   const panRef = useRef(null);
   const linkRef = useRef(null);
+  const zoomControlsDragRef = useRef(null);
 
   const filteredNotes = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -706,6 +708,14 @@ export default function NotesList({
 
     function handlePointerMove(e) {
       const pan = panRef.current;
+      const zoomControlsDrag = zoomControlsDragRef.current;
+      if (zoomControlsDrag && zoomControlsDrag.pointerId === e.pointerId) {
+        setZoomControlsOffset({
+          x: zoomControlsDrag.originX + (e.clientX - zoomControlsDrag.startX),
+          y: zoomControlsDrag.originY + (e.clientY - zoomControlsDrag.startY),
+        });
+        return;
+      }
       const link = linkRef.current;
       if (link && link.pointerId === e.pointerId) {
         const boardRect = boardRef.current?.getBoundingClientRect();
@@ -763,6 +773,11 @@ export default function NotesList({
 
     async function handlePointerUp(e) {
       const pan = panRef.current;
+      const zoomControlsDrag = zoomControlsDragRef.current;
+      if (zoomControlsDrag && zoomControlsDrag.pointerId === e.pointerId) {
+        zoomControlsDragRef.current = null;
+        return;
+      }
       const link = linkRef.current;
       if (link && link.pointerId === e.pointerId) {
         linkRef.current = null;
@@ -871,6 +886,18 @@ export default function NotesList({
     setBoardScale(clampBoardScale(nextScale));
   }
 
+  function handleZoomControlsDragStart(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    zoomControlsDragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: zoomControlsOffset.x,
+      originY: zoomControlsOffset.y,
+    };
+  }
+
   function centerNoteInView(noteId) {
     const scroller = scrollerRef.current;
     const noteElement = boardRef.current?.querySelector(`[data-note-id="${noteId}"]`);
@@ -977,7 +1004,19 @@ export default function NotesList({
         ) : (
           <div className="relative">
             {desktopMergeEnabled && (
-              <div className="absolute right-3 top-3 z-30 flex items-center gap-1 rounded-full bg-white/92 p-1 shadow-sm ring-1 ring-zinc-200 backdrop-blur dark:bg-[#202c40]/92 dark:ring-slate-600">
+              <div
+                className="absolute right-3 top-3 z-30 flex items-center gap-1 rounded-full bg-white/92 p-1 shadow-sm ring-1 ring-zinc-200 backdrop-blur dark:bg-[#202c40]/92 dark:ring-slate-600"
+                style={{ transform: `translate(${zoomControlsOffset.x}px, ${zoomControlsOffset.y}px)` }}
+              >
+                <button
+                  type="button"
+                  onPointerDown={handleZoomControlsDragStart}
+                  aria-label="Move zoom controls"
+                  title="Move zoom controls"
+                  className="flex h-7 w-7 cursor-grab touch-none items-center justify-center rounded-full text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 active:cursor-grabbing dark:text-zinc-300 dark:hover:bg-[#344158] dark:hover:text-white"
+                >
+                  <GripIcon />
+                </button>
                 <button
                   type="button"
                   onClick={() => handleBoardZoom(boardScale - 0.1)}
