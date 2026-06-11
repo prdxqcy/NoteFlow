@@ -371,7 +371,7 @@ function NoteCard({
             : isMergeTarget
               ? 'border-violet-500 ring-4 ring-violet-500/25 dark:border-violet-400'
             : 'border-white/70 dark:border-zinc-300'
-      } ${desktopMergeEnabled ? 'h-full overflow-auto' : ''}`}
+      } ${desktopMergeEnabled ? 'note-card-scroll h-full overflow-auto' : ''}`}
       style={{ background: noteColor === '#ffffff' ? 'linear-gradient(180deg, rgba(255,255,255,0.97) 0%, rgba(248,250,252,0.94) 100%)' : `linear-gradient(180deg, color-mix(in srgb, ${noteColor} 88%, white 12%) 0%, color-mix(in srgb, ${noteColor} 76%, white 24%) 100%)` }}
       onPointerDown={(e) => {
         if (desktopMergeEnabled && !e.target.closest('input, textarea, button, a')) {
