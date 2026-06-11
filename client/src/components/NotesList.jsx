@@ -355,15 +355,15 @@ function NoteCard({
           }}
         />
       </div>
-      <div className="flex w-full flex-wrap items-center justify-end gap-1 overflow-hidden opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-          <div className="flex max-w-full flex-wrap items-center gap-1 rounded-full bg-white/80 px-1.5 py-1 shadow-sm ring-1 ring-zinc-200 backdrop-blur dark:bg-white dark:ring-zinc-300">
+      <div className="sticky top-0 z-20 flex w-full shrink-0 items-center justify-end gap-1 overflow-visible rounded-lg bg-white/70 py-1 backdrop-blur dark:bg-white/70">
+          <div className="flex shrink-0 items-center gap-1 rounded-full bg-white/85 px-1.5 py-1 shadow-sm ring-1 ring-zinc-200 backdrop-blur dark:bg-white dark:ring-zinc-300">
             {NOTE_COLORS.map((color) => (
               <button
                 key={color.value}
                 onClick={() => onUpdate(note.id, { color: color.value })}
                 aria-label={`Set note color to ${color.label}`}
                 title={color.label}
-                className={`h-3.5 w-3.5 rounded-full ring-1 ring-black/10 transition-transform hover:scale-110 ${
+                className={`h-4 w-4 shrink-0 rounded-full ring-1 ring-black/10 transition-transform hover:scale-110 ${
                   noteColor === color.value ? 'ring-2 ring-zinc-900 dark:ring-zinc-100' : ''
                 }`}
                 style={{ backgroundColor: color.value }}
@@ -373,14 +373,15 @@ function NoteCard({
           <button
             onClick={() => onUpdate(note.id, { is_pinned: !note.is_pinned })}
             title={note.is_pinned ? 'Unpin' : 'Pin'}
-            className="rounded px-1.5 py-1 text-xs text-zinc-500 hover:bg-black/5 hover:text-zinc-900 dark:text-zinc-500 dark:hover:bg-black/5 dark:hover:text-zinc-900"
+            className="shrink-0 rounded px-1.5 py-1 text-xs text-zinc-500 hover:bg-black/5 hover:text-zinc-900 dark:text-zinc-500 dark:hover:bg-black/5 dark:hover:text-zinc-900"
           >
             {note.is_pinned ? 'Pinned' : 'Pin'}
           </button>
           <button
             onClick={() => onUpdate(note.id, { is_private: !note.is_private })}
+            aria-label={note.is_private ? 'Make visible to workspace' : 'Make private'}
             title={note.is_private ? 'Make visible to workspace' : 'Make private (only you)'}
-            className={`rounded p-1 text-xs transition-colors ${
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded p-1 text-xs transition-colors ${
               note.is_private
                 ? 'text-emerald-500 hover:bg-black/5 hover:text-emerald-700 dark:text-emerald-400 dark:hover:bg-white/5 dark:hover:text-emerald-300'
                 : 'text-zinc-500 hover:bg-black/5 hover:text-zinc-900 dark:text-zinc-500 dark:hover:bg-black/5 dark:hover:text-zinc-900'
@@ -392,7 +393,7 @@ function NoteCard({
             onClick={() => onDelete(note.id)}
             aria-label="Delete note"
             title="Delete note"
-            className="rounded p-1 text-red-500 hover:bg-red-500/10 hover:text-red-600"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded p-1 text-red-500 hover:bg-red-500/10 hover:text-red-600"
           >
             <TrashIcon />
           </button>
