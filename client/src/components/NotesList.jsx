@@ -312,6 +312,8 @@ function NoteCard({
   onZoomToNote,
   onUpdate,
   onUpdateSection,
+  onUnmergeSection,
+  onDeleteSection,
   onDelete,
   onAddImage,
   onDeleteImage,
@@ -1208,16 +1210,18 @@ export default function NotesList({
                         isMergeTarget={mergeTargetId === note.id}
                         isLinking={linkingNoteId === note.id}
                         desktopMergeEnabled={desktopMergeEnabled && !query.trim()}
-                        onMoveStart={handleMoveStart}
-                        onLinkStart={handleLinkStart}
-                        onZoomToNote={handleZoomToNote}
-                        onResizeStart={handleResizeStart}
-                        onUpdate={onUpdate}
-                        onUpdateSection={onUpdateSection}
-                        onDelete={onDelete}
-                        onAddImage={onAddImage}
-                        onDeleteImage={onDeleteImage}
-                        onAddAnnotation={onAddAnnotation}
+                  onMoveStart={handleMoveStart}
+                  onLinkStart={handleLinkStart}
+                  onZoomToNote={handleZoomToNote}
+                  onResizeStart={handleResizeStart}
+                  onUpdate={onUpdate}
+                  onUpdateSection={onUpdateSection}
+                  onUnmergeSection={onUnmergeSection}
+                  onDeleteSection={onDeleteSection}
+                  onDelete={onDelete}
+                  onAddImage={onAddImage}
+                  onDeleteImage={onDeleteImage}
+                  onAddAnnotation={onAddAnnotation}
                         onDeleteAnnotation={onDeleteAnnotation}
                       />
                     </div>
@@ -1238,6 +1242,8 @@ export default function NotesList({
                     onResizeStart={handleResizeStart}
                     onUpdate={onUpdate}
                     onUpdateSection={onUpdateSection}
+                    onUnmergeSection={onUnmergeSection}
+                    onDeleteSection={onDeleteSection}
                     onDelete={onDelete}
                     onAddImage={onAddImage}
                     onDeleteImage={onDeleteImage}
