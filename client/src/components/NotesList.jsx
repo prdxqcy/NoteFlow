@@ -200,9 +200,19 @@ function ScreenshotGroup({ images, onDeleteImage, onAddAnnotation, onDeleteAnnot
   );
 }
 
-function MergedNoteSection({ section, images, onUpdate, onDeleteImage, onAddAnnotation, onDeleteAnnotation }) {
+function MergedNoteSection({
+  section,
+  images,
+  onUpdate,
+  onUnmerge,
+  onDeleteSection,
+  onDeleteImage,
+  onAddAnnotation,
+  onDeleteAnnotation,
+}) {
   const [title, setTitle] = useState(section.title);
   const [content, setContent] = useState(section.content);
+  const [busyAction, setBusyAction] = useState('');
   const saveTimer = useRef(null);
 
   useEffect(() => setTitle(section.title), [section.title]);
@@ -212,6 +222,26 @@ function MergedNoteSection({ section, images, onUpdate, onDeleteImage, onAddAnno
   function scheduleUpdate(patch) {
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => onUpdate(section.id, patch), 600);
+  }
+
+  async function handleUnmerge() {
+    if (!window.confirm(`Unmerge "${title || 'Untitled'}" into its own note?`)) return;
+    setBusyAction('unmerge');
+    try {
+      await onUnmerge(section.id);
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  async function handleDeleteSection() {
+    if (!window.confirm(`Delete merged section "${title || 'Untitled'}"?`)) return;
+    setBusyAction('delete');
+    try {
+      await onDeleteSection(section.id);
+    } finally {
+      setBusyAction('');
+    }
   }
 
   return (
@@ -230,6 +260,24 @@ function MergedNoteSection({ section, images, onUpdate, onDeleteImage, onAddAnno
           <time className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
             {formatContextDate(section.context_updated_at)}
           </time>
+        </div>
+        <div className="mt-2 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={handleUnmerge}
+            disabled={Boolean(busyAction)}
+            className="rounded-full border border-black/10 bg-white/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-600 transition-colors hover:bg-white disabled:cursor-wait disabled:opacity-60"
+          >
+            {busyAction === 'unmerge' ? 'Unmerging...' : 'Unmerge'}
+          </button>
+          <button
+            type="button"
+            onClick={handleDeleteSection}
+            disabled={Boolean(busyAction)}
+            className="rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-red-600 transition-colors hover:bg-red-100 disabled:cursor-wait disabled:opacity-60"
+          >
+            {busyAction === 'delete' ? 'Deleting...' : 'Delete part'}
+          </button>
         </div>
         <textarea
           value={content}
@@ -545,6 +593,8 @@ function NoteCard({
               section={section}
               images={(note.images || []).filter((image) => image.section_id === section.id)}
               onUpdate={(sectionId, patch) => onUpdateSection(note.id, sectionId, patch)}
+              onUnmerge={(sectionId) => onUnmergeSection(note.id, sectionId)}
+              onDeleteSection={(sectionId) => onDeleteSection(note.id, sectionId)}
               onDeleteImage={(imageId) => onDeleteImage(note.id, imageId)}
               onAddAnnotation={onAddAnnotation}
               onDeleteAnnotation={onDeleteAnnotation}
@@ -630,6 +680,8 @@ export default function NotesList({
   onCreate,
   onUpdate,
   onUpdateSection,
+  onUnmergeSection,
+  onDeleteSection,
   onCreateLink,
   onDeleteLink,
   onDelete,

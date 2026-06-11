@@ -349,6 +349,19 @@ export default function DashboardPage() {
     )));
   }, []);
 
+  const handleUnmergeNoteSection = useCallback(async (noteId, sectionId) => {
+    const result = await api.unmergeNoteSection(noteId, sectionId);
+    setNotes((prev) => {
+      const withoutOld = prev.filter((note) => note.id !== noteId && note.id !== result.restored_note.id);
+      return [result.restored_note, result.note, ...withoutOld];
+    });
+  }, []);
+
+  const handleDeleteNoteSection = useCallback(async (noteId, sectionId) => {
+    const updated = await api.deleteNoteSection(noteId, sectionId);
+    setNotes((prev) => prev.map((note) => (note.id === noteId ? updated : note)));
+  }, []);
+
   const handleAddNoteImage = useCallback(async (noteId, file) => {
     const image = await api.uploadNoteImage(noteId, file);
     setNotes((prev) =>
@@ -576,6 +589,8 @@ export default function DashboardPage() {
               onCreate={handleCreateNote}
               onUpdate={handleUpdateNote}
               onUpdateSection={handleUpdateNoteSection}
+              onUnmergeSection={handleUnmergeNoteSection}
+              onDeleteSection={handleDeleteNoteSection}
               onCreateLink={handleCreateNoteLink}
               onDeleteLink={handleDeleteNoteLink}
               onDelete={handleDeleteNote}

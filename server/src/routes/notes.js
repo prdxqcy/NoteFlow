@@ -88,6 +88,68 @@ async function getNoteWithImages(noteId) {
   return rows[0];
 }
 
+async function normalizeMergedNote(noteId, client) {
+  const { rows: sections } = await client.query(
+    `SELECT id, title, content, context_updated_at, created_at
+     FROM note_sections
+     WHERE note_id = $1
+     ORDER BY sort_order, context_updated_at DESC, created_at DESC`,
+    [noteId]
+  );
+
+  if (sections.length === 0) {
+    await client.query(
+      `UPDATE notes
+       SET title = 'Untitled', content = ''
+       WHERE id = $1`,
+      [noteId]
+    );
+    return;
+  }
+
+  if (sections.length === 1) {
+    const [section] = sections;
+    await client.query(
+      `UPDATE notes
+       SET title = $1, content = $2
+       WHERE id = $3`,
+      [section.title || 'Untitled', section.content || '', noteId]
+    );
+    await client.query(
+      `UPDATE note_images
+       SET section_id = NULL
+       WHERE note_id = $1 AND section_id = $2`,
+      [noteId, section.id]
+    );
+    await client.query('DELETE FROM note_sections WHERE id = $1', [section.id]);
+    return;
+  }
+
+  await client.query(
+    `WITH ordered AS (
+       SELECT id, ROW_NUMBER() OVER (ORDER BY sort_order, context_updated_at DESC, created_at DESC) - 1 AS position
+       FROM note_sections
+       WHERE note_id = $1
+     )
+     UPDATE note_sections
+     SET sort_order = ordered.position
+     FROM ordered
+     WHERE note_sections.id = ordered.id`,
+    [noteId]
+  );
+
+  const mergedContent = sections
+    .map((section) => `# ${section.title || 'Untitled'}\n${section.content?.trim() || '(No text)'}`)
+    .join('\n\n');
+
+  await client.query(
+    `UPDATE notes
+     SET title = $1, content = $2
+     WHERE id = $3`,
+    [sections[0].title || 'Merged note', mergedContent, noteId]
+  );
+}
+
 // Get all notes for a workspace
 router.get('/workspace/:workspaceId', async (req, res) => {
   if (!(await assertMember(req.params.workspaceId, req.user.id))) {
@@ -452,6 +514,133 @@ router.patch('/:noteId/sections/:sectionId', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/:noteId/sections/:sectionId/unmerge', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: noteRows } = await client.query('SELECT * FROM notes WHERE id = $1 FOR UPDATE', [req.params.noteId]);
+    const note = noteRows[0];
+    if (!note) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Note not found' });
+    }
+    if (!(await assertMember(note.workspace_id, req.user.id))) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    if (!(await assertPermission(note.workspace_id, req.user.id, 'edit_notes'))) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'You do not have permission to edit notes' });
+    }
+
+    const { rows: sectionRows } = await client.query(
+      'SELECT * FROM note_sections WHERE id = $1 AND note_id = $2 FOR UPDATE',
+      [req.params.sectionId, note.id]
+    );
+    const section = sectionRows[0];
+    if (!section) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Merged note section not found' });
+    }
+
+    const { rows: createdRows } = await client.query(
+      `INSERT INTO notes (workspace_id, created_by, title, content, color, sort_order)
+       VALUES ($1, $2, $3, $4, $5, (
+         SELECT COALESCE(MIN(sort_order), 0) - 1 FROM notes WHERE workspace_id = $1
+       ))
+       RETURNING id`,
+      [note.workspace_id, req.user.id, section.title || 'Untitled', section.content || '', note.color || '#ffffff']
+    );
+    const restoredNoteId = createdRows[0].id;
+
+    await client.query(
+      `UPDATE note_images
+       SET note_id = $1,
+           section_id = NULL,
+           context_title = COALESCE(context_title, $2),
+           context_content = COALESCE(context_content, $3),
+           context_updated_at = COALESCE(context_updated_at, $4)
+       WHERE note_id = $5 AND section_id = $6`,
+      [restoredNoteId, section.title, section.content, section.context_updated_at, note.id, section.id]
+    );
+
+    await client.query('DELETE FROM note_sections WHERE id = $1', [section.id]);
+    await normalizeMergedNote(note.id, client);
+
+    await client.query(
+      `INSERT INTO workspace_activity(workspace_id,user_id,action,entity_type,entity_id,details)
+       VALUES($1,$2,'unmerged','note',$3,$4)`,
+      [note.workspace_id, req.user.id, restoredNoteId, { source_note_id: note.id, section_title: section.title }]
+    );
+
+    await client.query('COMMIT');
+
+    res.json({
+      note: await getNoteWithImages(note.id),
+      restored_note: await getNoteWithImages(restoredNoteId),
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    res.status(500).json({ error: 'Could not unmerge note section' });
+  } finally {
+    client.release();
+  }
+});
+
+router.delete('/:noteId/sections/:sectionId', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: noteRows } = await client.query('SELECT * FROM notes WHERE id = $1 FOR UPDATE', [req.params.noteId]);
+    const note = noteRows[0];
+    if (!note) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Note not found' });
+    }
+    if (!(await assertMember(note.workspace_id, req.user.id))) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    if (!(await assertPermission(note.workspace_id, req.user.id, 'edit_notes'))) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'You do not have permission to edit notes' });
+    }
+
+    const { rows: sectionRows } = await client.query(
+      'SELECT * FROM note_sections WHERE id = $1 AND note_id = $2 FOR UPDATE',
+      [req.params.sectionId, note.id]
+    );
+    const section = sectionRows[0];
+    if (!section) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Merged note section not found' });
+    }
+
+    await client.query(
+      'DELETE FROM note_images WHERE note_id = $1 AND section_id = $2',
+      [note.id, section.id]
+    );
+    await client.query('DELETE FROM note_sections WHERE id = $1', [section.id]);
+    await normalizeMergedNote(note.id, client);
+
+    await client.query(
+      `INSERT INTO workspace_activity(workspace_id,user_id,action,entity_type,entity_id,details)
+       VALUES($1,$2,'deleted-merged-section','note',$3,$4)`,
+      [note.workspace_id, req.user.id, note.id, { section_title: section.title }]
+    );
+
+    await client.query('COMMIT');
+    res.json(await getNoteWithImages(note.id));
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    res.status(500).json({ error: 'Could not delete merged note section' });
+  } finally {
+    client.release();
   }
 });
 
