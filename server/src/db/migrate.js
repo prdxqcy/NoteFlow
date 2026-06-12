@@ -348,6 +348,10 @@ async function migrate() {
     `);
 
     await client.query(`
+      ALTER TABLE meetings ADD COLUMN IF NOT EXISTS location TEXT;
+    `);
+
+    await client.query(`
       DROP TRIGGER IF EXISTS meetings_updated_at ON meetings;
       CREATE TRIGGER meetings_updated_at
         BEFORE UPDATE ON meetings

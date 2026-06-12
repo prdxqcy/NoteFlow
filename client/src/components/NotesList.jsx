@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import AiNoteAssistant from './AiNoteAssistant';
 
@@ -1669,14 +1669,12 @@ export default function NotesList({
                   const start = getLinkAnchor(link.source_note_id, sourceDirection, positions, sizes);
                   const end = getLinkAnchor(link.target_note_id, targetDirection, positions, sizes);
                   return (
-                    <>
+                    <React.Fragment key={link.id}>
                       <path
-                        key={`${link.id}:glow`}
                         d={getLinkPath(start, end)}
                         className="pointer-events-none fill-none stroke-slate-400/30 stroke-[9]"
                       />
                       <path
-                        key={link.id}
                         d={getLinkPath(start, end)}
                         className="pointer-events-auto cursor-pointer fill-none stroke-slate-500 stroke-[2.5] transition-colors hover:stroke-emerald-500"
                         markerEnd="url(#note-link-arrow)"
@@ -1686,7 +1684,7 @@ export default function NotesList({
                           if (confirmed) onDeleteLink(link.source_note_id, link.id);
                         }}
                       />
-                    </>
+                    </React.Fragment>
                   );
                 })}
                 {linkingNoteId && draftLinkPoint && (() => {

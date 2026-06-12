@@ -1,5 +1,38 @@
 import { useEffect, useMemo, useState } from 'react';
 
+const AVATAR_COLORS = [
+  'bg-violet-500', 'bg-blue-500', 'bg-emerald-500', 'bg-amber-500',
+  'bg-rose-500', 'bg-cyan-500', 'bg-indigo-500', 'bg-pink-500',
+];
+
+function memberColor(id = '') {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+function Avatar({ member, size = 'md' }) {
+  const sz = size === 'lg' ? 'h-12 w-12 text-base' : 'h-9 w-9 text-sm';
+  const letter = member.display_name?.[0] || member.email?.[0] || '?';
+  return (
+    <div className={`${sz} ${memberColor(member.id)} flex shrink-0 items-center justify-center rounded-full font-bold text-white`}>
+      {letter.toUpperCase()}
+    </div>
+  );
+}
+
+function StatBadge({ value, label, icon }) {
+  return (
+    <div className="flex items-center gap-2 rounded-xl border border-zinc-100 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-800/60">
+      <span className="text-zinc-400">{icon}</span>
+      <div>
+        <p className="text-sm font-bold leading-none text-zinc-900 dark:text-zinc-100">{value}</p>
+        <p className="mt-0.5 text-[10px] text-zinc-400">{label}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function TeamPanel({
   workspace,
   members,
@@ -34,9 +67,8 @@ export default function TeamPanel({
   }, [workspace?.id, workspace?.name, workspace?.description]);
 
   const memberSummary = useMemo(() => {
-    const owners = members.filter((member) => member.role === 'owner').length;
-    const collaborators = members.length - owners;
-    return { owners, collaborators };
+    const owners = members.filter((m) => m.role === 'owner').length;
+    return { owners, collaborators: members.length - owners };
   }, [members]);
 
   async function handleSubmit(e) {
@@ -47,20 +79,11 @@ export default function TeamPanel({
     try {
       const result = await onInvite(email.trim());
       setEmail('');
-      if (result?.type === 'invited') {
-        setSuccessMsg(`Invite sent to ${result.email}`);
-      } else if (result?.type === 'added') {
-        setSuccessMsg(`${result.member?.display_name || result.email} added to workspace`);
-      }
+      if (result?.type === 'invited') setSuccessMsg(`Invite sent to ${result.email}`);
+      else if (result?.type === 'added') setSuccessMsg(`${result.member?.display_name || result.email} added`);
     } catch (err) {
       setError(err.message);
     }
-  }
-
-  async function handleDeleteWorkspace() {
-    const confirmed = window.confirm(`Delete "${workspace?.name}"? This removes its notes, meetings, and members.`);
-    if (!confirmed) return;
-    await onDeleteWorkspace();
   }
 
   async function handleWorkspaceSubmit(e) {
@@ -69,231 +92,320 @@ export default function TeamPanel({
     setWorkspaceSuccess('');
     try {
       await onUpdateWorkspace({ name: workspaceName, description: workspaceDescription });
-      setWorkspaceSuccess('Workspace details saved.');
+      setWorkspaceSuccess('Workspace saved.');
     } catch (err) {
       setWorkspaceError(err.message);
     }
   }
 
   async function handleRoleChange(member, role) {
-    setWorkspaceError('');
-    try {
-      await onUpdateMemberRole(member.id, role);
-    } catch (err) {
-      setWorkspaceError(err.message);
-    }
+    try { await onUpdateMemberRole(member.id, role); } catch (err) { setWorkspaceError(err.message); }
   }
 
   async function handleRemoveMember(member) {
-    const name = member.display_name || member.email;
-    if (!window.confirm(`Remove ${name} from this workspace?`)) return;
-    setWorkspaceError('');
-    try {
-      await onRemoveMember(member.id);
-    } catch (err) {
-      setWorkspaceError(err.message);
-    }
+    if (!window.confirm(`Remove ${member.display_name || member.email}?`)) return;
+    try { await onRemoveMember(member.id); } catch (err) { setWorkspaceError(err.message); }
   }
+
+  async function handleDeleteWorkspace() {
+    if (!window.confirm(`Delete "${workspace?.name}"? This removes all notes, meetings, and members.`)) return;
+    await onDeleteWorkspace();
+  }
+
+  const inputCls = 'w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-emerald-600 dark:focus:ring-emerald-900/30';
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      <header className="border-b border-zinc-200 px-4 py-4 sm:px-6 dark:border-zinc-800">
-        <div className="flex flex-col gap-2">
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Collaboration</h2>
-          <p className="text-sm text-zinc-500 dark:text-zinc-500">
-            Invite people to this workspace and keep everyone aligned in one place.
-          </p>
+      {/* Header */}
+      <header className="border-b border-zinc-200 bg-white px-6 py-5 dark:border-zinc-800 dark:bg-[#111a2a]">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-900/30">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5 text-emerald-600 dark:text-emerald-400">
+              <path d="M17 20v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" strokeLinecap="round" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 20v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" strokeLinecap="round" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Collaboration</h2>
+            <p className="text-xs text-zinc-400">Manage your workspace and team members</p>
+          </div>
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
-          <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/90">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-500">Workspace</p>
-                <h3 className="mt-2 text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
-                  {workspace?.name || 'Workspace'}
-                </h3>
-              </div>
-              <div className="flex gap-2">
-                <div className="rounded-xl bg-zinc-100 px-3 py-2 text-sm text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                  {members.length} member{members.length === 1 ? '' : 's'}
-                </div>
-                <div className="rounded-xl bg-zinc-100 px-3 py-2 text-sm text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                  {memberSummary.collaborators} collaborator{memberSummary.collaborators === 1 ? '' : 's'}
-                </div>
-              </div>
-            </div>
+      <div className="flex-1 overflow-y-auto bg-[#f5f6fa] p-5 dark:bg-[#0e1825]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(300px,0.7fr)]">
 
-            <div className="mt-5 border-t border-zinc-200 pt-5 dark:border-zinc-800">
-              <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">Workspace profile</p>
-              {canManageWorkspace ? (
-                <form className="mt-4 space-y-4" onSubmit={handleWorkspaceSubmit}>
-                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                    Name
-                    <input
-                      value={workspaceName}
-                      onChange={(e) => setWorkspaceName(e.target.value)}
-                      maxLength={120}
-                      required
-                      className="mt-2 w-full rounded-xl bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 focus:ring-emerald-400 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700"
-                    />
-                  </label>
-                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                    Description
-                    <textarea
-                      value={workspaceDescription}
-                      onChange={(e) => setWorkspaceDescription(e.target.value)}
-                      maxLength={1000}
-                      rows={3}
-                      placeholder="What is this workspace used for?"
-                      className="mt-2 w-full resize-y rounded-xl bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 placeholder:text-zinc-400 focus:ring-emerald-400 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700"
-                    />
-                  </label>
-                  {workspaceError && <p className="text-sm text-red-500">{workspaceError}</p>}
-                  {workspaceSuccess && <p className="text-sm text-emerald-600 dark:text-emerald-400">{workspaceSuccess}</p>}
-                  <button
-                    type="submit"
-                    disabled={savingWorkspace}
-                    className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-                  >
-                    {savingWorkspace ? 'Saving...' : 'Save workspace'}
-                  </button>
-                </form>
-              ) : (
-                <p className="mt-3 text-sm text-zinc-500">
-                  {workspace?.description || 'No workspace description yet.'}
-                </p>
-              )}
-            </div>
+          {/* ── Left Column ── */}
+          <div className="space-y-4">
 
-            <div className="mt-5 space-y-3">
-              {members.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-zinc-300 px-4 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-500">
-                  No members yet.
-                </div>
-              ) : (
-                members.map((member) => (
-                  <div
-                    key={member.id}
-                    className="flex items-center gap-3 rounded-2xl border border-zinc-200 px-4 py-3 dark:border-zinc-800"
-                  >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-sm font-semibold uppercase text-zinc-700 dark:bg-zinc-700 dark:text-zinc-100">
-                      {member.display_name?.[0] || member.email?.[0] || '?'}
+            {/* Workspace card */}
+            <div className="overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-sm dark:border-zinc-800 dark:bg-[#1a2638]">
+              {/* Color bar */}
+              <div className="h-1.5 w-full bg-gradient-to-r from-emerald-500 to-teal-400" />
+
+              <div className="p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-600 text-lg font-black text-white shadow-sm">
+                      {workspace?.name?.[0]?.toUpperCase() || 'W'}
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                        {member.display_name}
-                        {member.id === currentUser?.id ? ' (You)' : ''}
-                      </p>
-                      <p className="truncate text-xs text-zinc-500 dark:text-zinc-500">{member.email}</p>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">Workspace</p>
+                      <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">{workspace?.name || 'Workspace'}</h3>
                     </div>
-                    {canManageWorkspace && member.role !== 'owner' ? (
-                      <div className="flex flex-wrap items-center justify-end gap-2">
-                        <select
-                          value={member.role}
-                          disabled={managingMemberId === member.id}
-                          onChange={(e) => handleRoleChange(member, e.target.value)}
-                          className="rounded-lg bg-zinc-100 px-2 py-1.5 text-xs font-medium capitalize text-zinc-700 outline-none ring-1 ring-zinc-200 disabled:opacity-50 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700"
-                          aria-label={`Role for ${member.display_name || member.email}`}
-                        >
-                          <option value="member">Member</option>
-                          <option value="admin">Admin</option>
-                        </select>
-                        <button
-                          type="button"
-                          disabled={managingMemberId === member.id}
-                          onClick={() => handleRemoveMember(member)}
-                          className="rounded-lg px-2 py-1.5 text-xs font-medium text-red-600 ring-1 ring-red-200 hover:bg-red-50 disabled:opacity-50 dark:text-red-400 dark:ring-red-900 dark:hover:bg-red-950/40"
-                        >
-                          Remove
-                        </button>
-                        {['edit_notes', 'merge_notes', 'manage_tasks'].map((permission) => (
-                          <label key={permission} className="flex items-center gap-1 text-[10px] text-zinc-500">
-                            <input
-                              type="checkbox"
-                              checked={member.permissions?.[permission] !== false}
-                              onChange={(e) => onUpdateMemberPermissions(member.id, {
-                                ...(member.permissions || {}),
-                                [permission]: e.target.checked,
-                              })}
-                            />
-                            {permission.replace('_', ' ')}
-                          </label>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium capitalize text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                        {member.role}
-                      </span>
-                    )}
                   </div>
-                ))
+                  <div className="flex gap-2">
+                    <StatBadge
+                      value={members.length}
+                      label={members.length === 1 ? 'member' : 'members'}
+                      icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" strokeLinecap="round" /></svg>}
+                    />
+                    <StatBadge
+                      value={memberSummary.collaborators}
+                      label={memberSummary.collaborators === 1 ? 'collaborator' : 'collaborators'}
+                      icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5"><path d="M17 20v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" strokeLinecap="round" /><circle cx="9" cy="7" r="4" /><path d="M23 20v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" strokeLinecap="round" /></svg>}
+                    />
+                  </div>
+                </div>
+
+                {/* Workspace form */}
+                {canManageWorkspace && (
+                  <form className="mt-5 space-y-3 border-t border-zinc-100 pt-5 dark:border-zinc-800" onSubmit={handleWorkspaceSubmit}>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">Workspace Profile</p>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-600 dark:text-zinc-400">Name</label>
+                      <input value={workspaceName} onChange={(e) => setWorkspaceName(e.target.value)} maxLength={120} required className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-zinc-600 dark:text-zinc-400">Description</label>
+                      <textarea value={workspaceDescription} onChange={(e) => setWorkspaceDescription(e.target.value)} maxLength={1000} rows={3} placeholder="What is this workspace used for?" className={inputCls + ' resize-none'} />
+                    </div>
+                    {workspaceError && <p className="text-xs text-red-500">{workspaceError}</p>}
+                    {workspaceSuccess && (
+                      <p className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-3.5 w-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                        {workspaceSuccess}
+                      </p>
+                    )}
+                    <button type="submit" disabled={savingWorkspace} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50">
+                      {savingWorkspace ? 'Saving…' : 'Save workspace'}
+                    </button>
+                  </form>
+                )}
+              </div>
+            </div>
+
+            {/* Members list */}
+            <div className="overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-sm dark:border-zinc-800 dark:bg-[#1a2638]">
+              <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-3.5 dark:border-zinc-800">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">Team Members</p>
+                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+                  {members.length}
+                </span>
+              </div>
+
+              {members.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-10 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-zinc-800">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-6 w-6 text-zinc-400"><path d="M17 20v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" strokeLinecap="round" /><circle cx="9" cy="7" r="4" /></svg>
+                  </div>
+                  <p className="text-sm text-zinc-500">No members yet</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                  {members.map((member) => (
+                    <div key={member.id} className="flex items-center gap-3.5 px-5 py-3.5 transition hover:bg-zinc-50 dark:hover:bg-zinc-800/40">
+                      <Avatar member={member} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                          {member.display_name}
+                          {member.id === currentUser?.id && <span className="ml-1.5 text-xs font-normal text-zinc-400">(You)</span>}
+                        </p>
+                        <p className="truncate text-xs text-zinc-400">{member.email}</p>
+                      </div>
+
+                      {canManageWorkspace && member.role !== 'owner' ? (
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          <select
+                            value={member.role}
+                            disabled={managingMemberId === member.id}
+                            onChange={(e) => handleRoleChange(member, e.target.value)}
+                            className="rounded-lg border border-zinc-200 bg-white px-2 py-1 text-xs font-medium text-zinc-700 outline-none focus:border-emerald-400 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                          >
+                            <option value="member">Member</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                          <button
+                            type="button"
+                            disabled={managingMemberId === member.id}
+                            onClick={() => handleRemoveMember(member)}
+                            className="rounded-lg border border-red-200 px-2 py-1 text-xs font-medium text-red-500 hover:bg-red-50 disabled:opacity-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-900/20"
+                          >
+                            Remove
+                          </button>
+                          <div className="flex gap-2">
+                            {['edit_notes', 'merge_notes', 'manage_tasks'].map((perm) => (
+                              <label key={perm} className="flex cursor-pointer items-center gap-1 text-[10px] text-zinc-500 dark:text-zinc-400">
+                                <input
+                                  type="checkbox"
+                                  checked={member.permissions?.[perm] !== false}
+                                  onChange={(e) => onUpdateMemberPermissions(member.id, { ...(member.permissions || {}), [perm]: e.target.checked })}
+                                  className="accent-emerald-600"
+                                />
+                                {perm.replace(/_/g, ' ')}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize ${
+                          member.role === 'owner'
+                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                            : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'
+                        }`}>
+                          {member.role}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
-          </section>
+          </div>
 
-          <aside className="space-y-4">
-            <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/90">
-              <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-500">Invite</p>
-              <h3 className="mt-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100">Bring in collaborators</h3>
-              <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-500">
-                Enter any email. If they have an account they'll be added instantly — otherwise they'll get an invite email to join.
-              </p>
+          {/* ── Right Column ── */}
+          <div className="space-y-4">
 
-              {canInvite ? (
-                <form onSubmit={handleSubmit} className="mt-4 space-y-3">
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => { setEmail(e.target.value); setSuccessMsg(''); }}
-                    placeholder="teammate@example.com"
-                    className="w-full rounded-xl bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none ring-1 ring-zinc-300 placeholder:text-zinc-400 focus:ring-emerald-400 dark:bg-zinc-900 dark:text-zinc-100 dark:ring-zinc-700 dark:placeholder:text-zinc-600 dark:focus:ring-zinc-500"
-                  />
-                  {error && <p className="text-sm text-red-500 dark:text-red-400">{error}</p>}
-                  {successMsg && <p className="text-sm text-green-600 dark:text-green-400">{successMsg}</p>}
-                  <button
-                    type="submit"
-                    disabled={inviting}
-                    className="w-full rounded-xl bg-emerald-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 dark:bg-emerald-500 dark:text-white dark:hover:bg-emerald-400"
-                  >
-                    {inviting ? 'Sending invite...' : 'Invite member'}
-                  </button>
-                </form>
-              ) : (
-                <p className="mt-4 rounded-xl bg-zinc-100 px-3 py-3 text-sm text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-                  Only workspace owners and admins can invite new members.
+            {/* Invite card */}
+            <div className="overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-sm dark:border-zinc-800 dark:bg-[#1a2638]">
+              <div className="h-1.5 w-full bg-gradient-to-r from-blue-500 to-violet-400" />
+              <div className="p-5">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/30">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5 text-blue-600 dark:text-blue-400">
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" strokeLinecap="round" />
+                      <circle cx="9" cy="7" r="4" />
+                      <line x1="19" y1="8" x2="19" y2="14" strokeLinecap="round" />
+                      <line x1="22" y1="11" x2="16" y2="11" strokeLinecap="round" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-400">Invite</p>
+                    <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Bring in collaborators</h3>
+                  </div>
+                </div>
+
+                <p className="mb-4 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                  Enter any email. Existing accounts are added instantly — otherwise an invite email is sent.
                 </p>
-              )}
-            </section>
 
-            <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/90">
-              <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-500">How Collaboration Works</p>
-              <div className="mt-3 space-y-3 text-sm text-zinc-600 dark:text-zinc-400">
-                <p>Shared notes are visible to all workspace members. Mark a note <strong>Private</strong> (lock icon) to keep it only for yourself.</p>
-                <p>When you create a meeting, add guest emails to send Google Calendar invites to people outside the workspace.</p>
-                <p>Changes to notes and meetings sync in real time for everyone in the workspace.</p>
+                {canInvite ? (
+                  <form onSubmit={handleSubmit} className="space-y-2.5">
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => { setEmail(e.target.value); setSuccessMsg(''); }}
+                      placeholder="teammate@example.com"
+                      className={inputCls}
+                    />
+                    {error && (
+                      <p className="flex items-center gap-1.5 text-xs text-red-500">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5 shrink-0"><circle cx="12" cy="12" r="9" /><path d="M12 8v4M12 16h.01" strokeLinecap="round" /></svg>
+                        {error}
+                      </p>
+                    )}
+                    {successMsg && (
+                      <p className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-3.5 w-3.5 shrink-0"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                        {successMsg}
+                      </p>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={inviting}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
+                    >
+                      {inviting ? (
+                        <>
+                          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" strokeOpacity=".25" /><path d="M12 3a9 9 0 0 1 9 9" strokeLinecap="round" /></svg>
+                          Sending…
+                        </>
+                      ) : (
+                        <>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4"><path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7Z" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                          Send invite
+                        </>
+                      )}
+                    </button>
+                  </form>
+                ) : (
+                  <div className="flex items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-800/50 dark:bg-amber-900/20">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400"><path strokeLinecap="round" strokeLinejoin="round" d="M12 2a5 5 0 0 1 5 5v3H7V7a5 5 0 0 1 5-5ZM4 11h16v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V11Z" /></svg>
+                    <p className="text-xs text-amber-700 dark:text-amber-300">Only workspace owners and admins can invite members.</p>
+                  </div>
+                )}
               </div>
-            </section>
+            </div>
 
+            {/* How it works */}
+            <div className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-[#1a2638]">
+              <p className="mb-4 text-[10px] font-semibold uppercase tracking-widest text-zinc-400">How Collaboration Works</p>
+              <div className="space-y-3.5">
+                {[
+                  {
+                    icon: <path d="M12 2a5 5 0 0 1 5 5v3H7V7a5 5 0 0 1 5-5ZM4 11h16v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V11Z" />,
+                    color: 'bg-violet-50 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400',
+                    text: 'Shared notes are visible to all workspace members. Mark a note Private (lock icon) to keep it only for yourself.',
+                  },
+                  {
+                    icon: <><rect x="3" y="5" width="18" height="16" rx="2" strokeLinecap="round" /><path d="M16 3v4M8 3v4M3 9h18" strokeLinecap="round" /></>,
+                    color: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
+                    text: 'Add guest emails when creating a meeting to automatically send Google Calendar invites.',
+                  },
+                  {
+                    icon: <><path d="M5 12.5 9 16.5 19 7.5" strokeLinecap="round" strokeLinejoin="round" /></>,
+                    color: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400',
+                    text: 'All changes to notes and meetings sync in real time for every workspace member.',
+                  },
+                ].map((item, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${item.color}`}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">{item.icon}</svg>
+                    </div>
+                    <p className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">{item.text}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Danger zone */}
             {canDeleteWorkspace && (
-              <section className="rounded-2xl border border-red-200 bg-white p-5 shadow-sm dark:border-red-900/60 dark:bg-zinc-900/90">
-                <p className="text-xs uppercase tracking-[0.2em] text-red-500 dark:text-red-400">Danger Zone</p>
-                <h3 className="mt-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100">Delete workspace</h3>
-                <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-500">
-                  This permanently removes the workspace, including all notes, meetings, and memberships.
+              <div className="rounded-2xl border border-red-200/80 bg-white p-5 shadow-sm dark:border-red-900/40 dark:bg-[#1a2638]">
+                <div className="mb-3 flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 dark:bg-red-900/30">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4 text-red-500">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" /><line x1="12" y1="9" x2="12" y2="13" strokeLinecap="round" /><line x1="12" y1="17" x2="12.01" y2="17" strokeLinecap="round" />
+                    </svg>
+                  </div>
+                  <p className="text-xs font-semibold uppercase tracking-widest text-red-500">Danger Zone</p>
+                </div>
+                <p className="mb-4 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                  Permanently removes this workspace along with all its notes, meetings, and memberships. This cannot be undone.
                 </p>
                 <button
                   onClick={handleDeleteWorkspace}
                   disabled={deletingWorkspace}
-                  className="mt-4 w-full rounded-xl bg-red-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-300 bg-white py-2 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:bg-transparent dark:text-red-400 dark:hover:bg-red-900/20"
                 >
-                  {deletingWorkspace ? 'Deleting workspace...' : 'Delete workspace'}
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M7.5 7l.7 11.1A2 2 0 0 0 10.2 20h3.6a2 2 0 0 0 2-1.9L16.5 7" />
+                  </svg>
+                  {deletingWorkspace ? 'Deleting…' : 'Delete workspace'}
                 </button>
-              </section>
+              </div>
             )}
-          </aside>
+          </div>
         </div>
       </div>
     </div>

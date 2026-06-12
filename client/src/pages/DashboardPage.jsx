@@ -4,12 +4,63 @@ import { api } from '../lib/api';
 import { getSocket } from '../lib/socket';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { useTheme } from '../hooks/useTheme.jsx';
+import { useReminders } from '../hooks/useReminders';
+import RemindersModal from '../components/RemindersModal';
 import Sidebar from '../components/Sidebar';
 import NotesList from '../components/NotesList';
 import MeetingsList from '../components/MeetingsList';
 import TeamPanel from '../components/TeamPanel';
 import SettingsPanel from '../components/SettingsPanel';
 import PowerPanel from '../components/PowerPanel';
+import HomeDashboard from '../components/HomeDashboard';
+
+function ClockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-4 w-4 text-zinc-400">
+      <circle cx="12" cy="12" r="9" strokeLinecap="round" />
+      <path d="M12 7v5l3 3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ReminderCard() {
+  const { reminders } = useReminders();
+  const [open, setOpen] = useState(false);
+
+  const upcoming = reminders.filter((r) => !r.fired).sort((a, b) => new Date(a.time) - new Date(b.time));
+  const next = upcoming[0];
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="flex flex-1 flex-col px-6 py-3 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-[#1d2b3a]"
+      >
+        <div className="flex items-center justify-between mb-2">
+          <ClockIcon />
+          <span className="text-xs font-medium text-emerald-600">
+            {upcoming.length > 0 ? `${upcoming.length} set` : 'Today'}
+          </span>
+        </div>
+        {next ? (
+          <>
+            <p className="text-xl font-bold text-zinc-900 dark:text-zinc-100 leading-none tabular-nums">
+              {new Date(next.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </p>
+            <p className="mt-1 text-[11px] text-zinc-400 truncate max-w-[120px]">{next.note}{upcoming.length > 1 ? ` +${upcoming.length - 1}` : ''}</p>
+          </>
+        ) : (
+          <>
+            <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 leading-none">0</p>
+            <p className="mt-1 text-[11px] text-zinc-400">Click to add</p>
+          </>
+        )}
+      </button>
+
+      {open && <RemindersModal onClose={() => setOpen(false)} />}
+    </>
+  );
+}
 
 function MobileShell({
   open,
@@ -220,7 +271,7 @@ export default function DashboardPage() {
   const [workspaces, setWorkspaces] = useState([]);
   const [activeWorkspace, setActiveWorkspace] = useState(null);
   // Switch to meetings view when returning from Google OAuth callback
-  const [view, setView] = useState(searchParams.get('google') ? 'meetings' : 'notes');
+  const [view, setView] = useState(searchParams.get('google') ? 'meetings' : 'home');
   const [notes, setNotes] = useState([]);
   const [meetings, setMeetings] = useState([]);
   const [members, setMembers] = useState([]);
@@ -527,7 +578,7 @@ export default function DashboardPage() {
   }, [activeWorkspace]);
 
   return (
-    <div className="flex h-[100dvh] flex-col overflow-hidden bg-slate-50 dark:bg-[#182235] lg:flex-row">
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-[#f5f6fa] dark:bg-[#131e2e] lg:flex-row">
       <Sidebar
         workspaces={workspaces}
         activeWorkspace={activeWorkspace}
@@ -563,21 +614,66 @@ export default function DashboardPage() {
           onCreateMeeting={() => handleCreateMeeting()}
         />
 
-        <section className="hidden gap-2.5 border-b border-slate-200 bg-slate-50 px-6 py-3 md:grid md:grid-cols-3 dark:border-slate-600/60 dark:bg-[#202c40]">
-          <div className="rounded-xl border border-zinc-200/80 bg-white/85 px-4 py-3 shadow-sm shadow-zinc-200/40 dark:border-slate-600/70 dark:bg-[#2a374c] dark:shadow-sm dark:shadow-black/15">
-            <p className="text-[10px] font-medium uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-500">Workspace</p>
-            <p className="mt-1.5 text-base font-semibold text-zinc-900 dark:text-zinc-100">
-              {activeWorkspace?.name || 'No workspace'}
-            </p>
+        {/* Stats bar — Rantevoo flat style */}
+        <section className="hidden bg-white border-b border-zinc-100 md:flex dark:bg-[#1a2535] dark:border-slate-700">
+          {/* Workspace */}
+          <div className="flex flex-1 flex-col px-6 py-3">
+            <div className="flex items-center justify-between mb-2">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-[18px] w-[18px] text-zinc-400">
+                <rect x="3" y="3" width="7" height="7" rx="1.5" strokeLinecap="round" /><rect x="14" y="3" width="7" height="7" rx="1.5" strokeLinecap="round" /><rect x="3" y="14" width="7" height="7" rx="1.5" strokeLinecap="round" /><rect x="14" y="14" width="7" height="7" rx="1.5" strokeLinecap="round" />
+              </svg>
+              <span className="text-xs font-medium text-emerald-600">Active</span>
+            </div>
+            <p className="text-xl font-bold text-zinc-900 dark:text-zinc-100 truncate leading-none">{activeWorkspace?.name || '—'}</p>
+            <p className="mt-1 text-[11px] text-zinc-400">{activeWorkspace?.is_solo ? 'Personal workspace' : 'Team workspace'}</p>
           </div>
-          <div className="rounded-xl border border-zinc-200/80 bg-white/85 px-4 py-3 shadow-sm shadow-zinc-200/40 dark:border-slate-600/70 dark:bg-[#2a374c] dark:shadow-sm dark:shadow-black/15">
-            <p className="text-[10px] font-medium uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-500">Pinned notes</p>
-            <p className="mt-1.5 text-base font-semibold text-zinc-900 dark:text-zinc-100">{pinnedNotes}</p>
+
+          <div className="w-px bg-zinc-100 dark:bg-slate-700" />
+
+          {/* Pinned notes */}
+          <div className="flex flex-1 flex-col px-6 py-3">
+            <div className="flex items-center justify-between mb-2">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-[18px] w-[18px] text-zinc-400">
+                <path d="M5 4h14v16H5z" strokeLinecap="round" strokeLinejoin="round" /><path d="M8 9h8M8 13h5" strokeLinecap="round" />
+              </svg>
+              <span className="text-xs font-medium text-emerald-600">^ {pinnedNotes}</span>
+            </div>
+            <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 leading-none">{pinnedNotes}</p>
+            <p className="mt-1 text-[11px] text-zinc-400">Pinned notes</p>
           </div>
-          <div className="rounded-xl border border-zinc-200/80 bg-white/85 px-4 py-3 shadow-sm shadow-zinc-200/40 dark:border-slate-600/70 dark:bg-[#2a374c] dark:shadow-sm dark:shadow-black/15">
-            <p className="text-[10px] font-medium uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-500">Upcoming meetings</p>
-            <p className="mt-1.5 text-base font-semibold text-zinc-900 dark:text-zinc-100">{upcomingMeetings}</p>
+
+          <div className="w-px bg-zinc-100 dark:bg-slate-700" />
+
+          {/* Upcoming meetings */}
+          <div className="flex flex-1 flex-col px-6 py-3">
+            <div className="flex items-center justify-between mb-2">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-[18px] w-[18px] text-zinc-400">
+                <rect x="3" y="5" width="18" height="16" rx="2" strokeLinecap="round" /><path d="M16 3v4M8 3v4M3 9h18" strokeLinecap="round" />
+              </svg>
+              <span className="text-xs font-medium text-emerald-600">^ {upcomingMeetings}</span>
+            </div>
+            <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 leading-none">{upcomingMeetings}</p>
+            <p className="mt-1 text-[11px] text-zinc-400">Upcoming meetings</p>
           </div>
+
+          <div className="w-px bg-zinc-100 dark:bg-slate-700" />
+
+          {/* Members */}
+          <div className="flex flex-1 flex-col px-6 py-3">
+            <div className="flex items-center justify-between mb-2">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-[18px] w-[18px] text-zinc-400">
+                <path d="M16 20v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" strokeLinecap="round" strokeLinejoin="round" /><circle cx="9" cy="7" r="4" /><path d="M22 20v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" strokeLinecap="round" />
+              </svg>
+              <span className="text-xs font-medium text-emerald-600">^ {members.length}</span>
+            </div>
+            <p className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 leading-none">{members.length}</p>
+            <p className="mt-1 text-[11px] text-zinc-400">Members</p>
+          </div>
+
+          <div className="w-px bg-zinc-100 dark:bg-slate-700" />
+
+          {/* Reminder */}
+          <ReminderCard />
         </section>
 
         <section className="flex gap-2 overflow-x-auto border-b border-zinc-200 px-4 py-3 md:hidden dark:border-zinc-800">
@@ -599,6 +695,17 @@ export default function DashboardPage() {
             </div>
           ) : loading ? (
             <div className="flex flex-1 items-center justify-center px-4 text-zinc-500 dark:text-zinc-600">Loading...</div>
+          ) : view === 'home' ? (
+            <HomeDashboard
+              notes={notes}
+              meetings={meetings}
+              members={members}
+              user={user}
+              workspace={activeWorkspace}
+              onCreateNote={handleCreateNote}
+              onCreateMeeting={handleCreateMeeting}
+              onChangeView={setView}
+            />
           ) : view === 'notes' ? (
             <NotesList
               notes={notes}
@@ -621,6 +728,7 @@ export default function DashboardPage() {
           ) : view === 'meetings' ? (
             <MeetingsList
               meetings={meetings}
+              members={members}
               onCreate={handleCreateMeeting}
               onDelete={handleDeleteMeeting}
               forceComposerToken={showMeetingComposer}
