@@ -49,6 +49,12 @@ function clampBoardScale(value) {
   return Math.min(MAX_BOARD_SCALE, Math.max(MIN_BOARD_SCALE, value));
 }
 
+function normalizeWheelDelta(event) {
+  if (event.deltaMode === 1) return event.deltaY * 16;
+  if (event.deltaMode === 2) return event.deltaY * window.innerHeight;
+  return event.deltaY;
+}
+
 function getNoteSize(note) {
   const width = Number.isFinite(note.note_width) ? note.note_width : DEFAULT_NOTE_SIZE.width;
   const height = Number.isFinite(note.note_height) ? note.note_height : DEFAULT_NOTE_SIZE.height;
@@ -1347,10 +1353,30 @@ export default function NotesList({
 
   function handleBoardWheel(event) {
     if (!desktopMergeEnabled) return;
-    if (!(event.ctrlKey || event.metaKey)) return;
+    if (event.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
     event.preventDefault();
-    const delta = event.deltaY < 0 ? 0.1 : -0.1;
-    setBoardScale((current) => clampBoardScale(Number((current + delta).toFixed(2))));
+    const scrollerRect = scroller.getBoundingClientRect();
+    const pointerOffsetX = event.clientX - scrollerRect.left;
+    const pointerOffsetY = event.clientY - scrollerRect.top;
+    const normalizedDelta = normalizeWheelDelta(event);
+    if (!normalizedDelta) return;
+
+    setBoardScale((current) => {
+      const next = clampBoardScale(Number((current * Math.exp(-normalizedDelta * 0.001)).toFixed(3)));
+      if (next === current) return current;
+
+      const boardPointX = (scroller.scrollLeft + pointerOffsetX) / current;
+      const boardPointY = (scroller.scrollTop + pointerOffsetY) / current;
+
+      window.requestAnimationFrame(() => {
+        scroller.scrollLeft = Math.max(0, (boardPointX * next) - pointerOffsetX);
+        scroller.scrollTop = Math.max(0, (boardPointY * next) - pointerOffsetY);
+      });
+
+      return next;
+    });
   }
 
   function handlePanStart(event) {
