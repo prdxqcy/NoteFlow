@@ -649,7 +649,7 @@ function NoteCard({
         }
       }}
     >
-      {previewNote && (
+      {previewNote && !desktopMergeEnabled && (
         <div className="pointer-events-none absolute left-4 right-4 top-16 z-30 rounded-xl border border-zinc-200 bg-white/96 p-3 text-left shadow-xl shadow-zinc-900/10 dark:border-zinc-300 dark:bg-white/96">
           <p className="truncate text-xs font-semibold text-zinc-950">{previewNote.title || 'Untitled'}</p>
           <p className="mt-1 line-clamp-3 text-[11px] leading-relaxed text-zinc-600">{getNoteSummary(previewNote, 150)}</p>
