@@ -7,3 +7,4 @@ client/release/
 *.log
 .DS_Store
 server/*.traineddata
+client/public/downloads/*.exe
