@@ -756,7 +756,7 @@ function NoteCard({
           )}
         </div>
       )}
-      <div className="sticky top-0 z-20 flex w-full shrink-0 items-center justify-between gap-3 overflow-visible">
+      <div className="flex w-full shrink-0 items-center justify-between gap-3 overflow-visible">
           <div className="flex shrink-0 items-center gap-1 rounded-full bg-white/88 px-1.5 py-1 shadow-sm ring-1 ring-black/10 backdrop-blur">
             {NOTE_COLORS.map((color) => (
               <button
