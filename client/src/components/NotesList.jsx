@@ -42,7 +42,7 @@ function findOpenDesktopPosition(occupied) {
 const DEFAULT_NOTE_SIZE = { width: 320, height: 360 };
 const MIN_NOTE_SIZE = { width: 260, height: 180 };
 const MAX_NOTE_SIZE = { width: 760, height: 900 };
-const MIN_BOARD_SCALE = 0.5;
+const MIN_BOARD_SCALE = 0.25;
 const MAX_BOARD_SCALE = 1.8;
 
 function clampBoardScale(value) {
