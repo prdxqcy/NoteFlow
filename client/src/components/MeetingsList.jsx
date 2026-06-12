@@ -554,16 +554,24 @@ export default function MeetingsList({ meetings, members = [], onCreate, onDelet
     const term = query.trim().toLowerCase();
     const now = Date.now();
 
+    function safeMs(val) {
+      if (!val) return null;
+      const t = new Date(val).getTime();
+      return isNaN(t) ? null : t;
+    }
+
     return [...meetings]
-      .sort((a, b) => new Date(a.start_time) - new Date(b.start_time))
+      .sort((a, b) => (safeMs(a.start_time) ?? 0) - (safeMs(b.start_time) ?? 0))
       .filter((meeting) => {
         const matchesTerm = !term || `${meeting.title} ${meeting.description || ''} ${meeting.creator_name || ''}`.toLowerCase().includes(term);
-        const startTime = new Date(meeting.start_time).getTime();
-        const endTime = meeting.end_time ? new Date(meeting.end_time).getTime() : startTime;
+        const startMs = safeMs(meeting.start_time);
+        const endMs = safeMs(meeting.end_time) ?? startMs;
+        // fall through to 'all' if dates are unparseable
+        if (startMs === null) return filter === 'all' && matchesTerm;
         const matchesFilter =
           filter === 'all' ||
-          (filter === 'upcoming' && endTime >= now) ||
-          (filter === 'past' && endTime < now);
+          (filter === 'upcoming' && (endMs ?? startMs) >= now) ||
+          (filter === 'past' && (endMs ?? startMs) < now);
         return matchesTerm && matchesFilter;
       });
   }, [filter, meetings, query]);
